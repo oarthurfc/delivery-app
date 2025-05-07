@@ -61,12 +61,7 @@ class _DeliveryAppState extends State<DeliveryApp> {
             ),
           ],
         ),
-        body: Center(
-          child: Text(
-            _isDriver ? 'Tela inicial do Motorista' : 'Tela inicial do Cliente',
-            style: TextStyle(fontSize: 20),
-          ),
-        ),
+        body: _isDriver ? DriverHomeScreen() : ClienteHomePage(),
       ),
     );
   }
