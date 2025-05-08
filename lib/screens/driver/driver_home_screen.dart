@@ -1,3 +1,4 @@
+import 'package:delivery/screens/driver/driver_get_orders.dart';
 import 'package:flutter/material.dart';
 import '../../widgets/common/app_bar_widget.dart';
 
@@ -25,7 +26,12 @@ class DriverHomeScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => GetOrderScreen()),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16), // aumenta a altura
                     textStyle: const TextStyle(fontSize: 18), // aumenta o tamanho da fonte
