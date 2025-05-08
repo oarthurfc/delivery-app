@@ -1,0 +1,55 @@
+@startuml
+enum UserType {
+  CUSTOMER
+  DRIVER
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  ON_COURSE
+  DELIVERIED
+}
+
+class User {
+  +int id
+  +String username
+  +String name
+  +UserType type
+}
+
+class Order {
+  +int id
+  +int customerId
+  +int? driverId
+  +OrderStatus status
+  +String address
+  +String description
+  +String imageUrl
+}
+
+class LocationPoint {
+  +int orderId
+  +DateTime createdAt
+  +double latitude
+  +double longitude
+}
+
+class NotificationPreference {
+  +int userId
+  +bool enabled
+}
+
+class Settings {
+  +int userId
+  +bool isDarkTheme
+  +bool showCompletedOrders
+}
+
+' Relações
+User "1" -- "0..*" Order : cria >
+User "1" -- "0..*" Order : entrega >
+Order "1" -- "0..*" LocationPoint : rastreado por >
+User "1" -- "1" NotificationPreference
+User "1" -- "1" Settings
+@enduml
