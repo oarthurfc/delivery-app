@@ -1,10 +1,12 @@
 class LocationPoint {
+  final int id;
   final int orderId;
   final DateTime createdAt;
   final double latitude;
   final double longitude;
 
   LocationPoint({
+    required this.id,
     required this.orderId,
     required this.createdAt,
     required this.latitude,
@@ -13,6 +15,7 @@ class LocationPoint {
 
   factory LocationPoint.fromJson(Map<String, dynamic> json) {
     return LocationPoint(
+      id: json['id'],
       orderId: json['order_id'],
       createdAt: DateTime.parse(json['created_at']),
       latitude: json['latitude'],
@@ -29,6 +32,6 @@ class LocationPoint {
     };
   }
 
-  factory LocationPoint.fromMap(Map<String, dynamic> map) => fromJson(map);
+  factory LocationPoint.fromMap(Map<String, dynamic> map) => LocationPoint.fromJson(map);
   Map<String, dynamic> toMap() => toJson();
 }

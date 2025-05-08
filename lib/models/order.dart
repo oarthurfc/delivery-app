@@ -1,3 +1,5 @@
+import 'address.dart';
+
 enum OrderStatus { PENDING, ACCEPTED, ON_COURSE, DELIVERIED }
 
 class Order {
@@ -5,7 +7,8 @@ class Order {
   final int customerId;
   final int? driverId;
   final OrderStatus status;
-  final String address;
+  final Address originAddress;
+  final Address destinationAddress;
   final String description;
   final String imageUrl;
 
@@ -14,7 +17,8 @@ class Order {
     required this.customerId,
     this.driverId,
     required this.status,
-    required this.address,
+    required this.originAddress,
+    required this.destinationAddress,
     required this.description,
     required this.imageUrl,
   });
@@ -25,24 +29,25 @@ class Order {
       customerId: json['customer_id'],
       driverId: json['driver_id'],
       status: OrderStatus.values.firstWhere((e) => e.name == json['status']),
-      address: json['address'],
+      originAddress: Address.fromJson(json['origin_address']),
+      destinationAddress: Address.fromJson(json['destination_address']),
       description: json['description'],
       imageUrl: json['image_url'],
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'customer_id': customerId,
-      'driver_id': driverId,
-      'status': status.name,
-      'address': address,
-      'description': description,
-      'image_url': imageUrl,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'customer_id': customerId,
+    'driver_id': driverId,
+    'status': status.name,
+    'origin_address': originAddress.toJson(),
+    'destination_address': destinationAddress.toJson(),
+    'description': description,
+    'image_url': imageUrl,
+  };
 
-  factory Order.fromMap(Map<String, dynamic> map) => fromJson(map);
+  factory Order.fromMap(Map<String, dynamic> map) =>  Order.fromJson(map);
   Map<String, dynamic> toMap() => toJson();
 }
+

@@ -1,4 +1,5 @@
 @startuml
+
 enum UserType {
   CUSTOMER
   DRIVER
@@ -23,12 +24,24 @@ class Order {
   +int customerId
   +int? driverId
   +OrderStatus status
-  +String address
+  +Address originAddress
+  +Address destinationAddress
   +String description
   +String imageUrl
 }
 
+class Address {
+  +int id
+  +String street
+  +String number
+  +String neighborhood
+  +String city
+  +double latitude
+  +double longitude
+}
+
 class LocationPoint {
+  +int id
   +int orderId
   +DateTime createdAt
   +double latitude
@@ -46,10 +59,12 @@ class Settings {
   +bool showCompletedOrders
 }
 
-' Relações
 User "1" -- "0..*" Order : cria >
 User "1" -- "0..*" Order : entrega >
 Order "1" -- "0..*" LocationPoint : rastreado por >
+Order "1" --> "1" Address : origem >
+Order "1" --> "1" Address : destino >
 User "1" -- "1" NotificationPreference
 User "1" -- "1" Settings
+
 @enduml

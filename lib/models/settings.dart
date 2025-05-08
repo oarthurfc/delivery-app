@@ -25,6 +25,6 @@ class Settings {
     };
   }
 
-  factory Settings.fromMap(Map<String, dynamic> map) => fromJson(map);
+  factory Settings.fromMap(Map<String, dynamic> map) => Settings.fromJson(map);
   Map<String, dynamic> toMap() => toJson();
 }

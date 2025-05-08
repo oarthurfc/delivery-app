@@ -31,6 +31,6 @@ class User {
     };
   }
 
-  factory User.fromMap(Map<String, dynamic> map) => fromJson(map);
+  factory User.fromMap(Map<String, dynamic> map) => User.fromJson(map);
   Map<String, dynamic> toMap() => toJson();
 }
