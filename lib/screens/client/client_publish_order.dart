@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../widgets/common/app_bar_widget.dart';
 
-class CadastrarEncomendaScreen extends StatelessWidget {
-  const CadastrarEncomendaScreen({super.key});
+class PublishOrderScreen extends StatelessWidget {
+  const PublishOrderScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

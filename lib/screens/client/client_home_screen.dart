@@ -29,7 +29,7 @@ class ClienteHomePage extends StatelessWidget {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => CadastrarEncomendaScreen()),
+                      MaterialPageRoute(builder: (context) => PublishOrderScreen()),
                     );
                   },
                   style: ElevatedButton.styleFrom(
