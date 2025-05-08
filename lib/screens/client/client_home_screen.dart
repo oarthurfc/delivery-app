@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/common/app_bar_widget.dart';
+import 'client_publish_order.dart';
 
 class ClienteHomePage extends StatelessWidget {
   const ClienteHomePage({super.key});
@@ -25,7 +26,12 @@ class ClienteHomePage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => CadastrarEncomendaScreen()),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     textStyle: const TextStyle(fontSize: 18),
