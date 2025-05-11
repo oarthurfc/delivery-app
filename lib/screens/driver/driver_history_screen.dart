@@ -27,7 +27,9 @@ class DriverHistoryScreen extends StatelessWidget {
     },
   ];
 
-  Widget buildHistoryCard(Map<String, dynamic> entrega) {
+  Widget buildHistoryCard(BuildContext context, Map<String, dynamic> entrega) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Card(
       elevation: 5,
       margin: const EdgeInsets.symmetric(vertical: 10),
@@ -42,10 +44,9 @@ class DriverHistoryScreen extends StatelessWidget {
             // Título do Card
             Text(
               'Entrega Número: ${entrega['id']}',
-              style: const TextStyle(
+              style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
-                color: Colors.blueGrey,
               ),
             ),
             const SizedBox(height: 8),
@@ -59,7 +60,7 @@ class DriverHistoryScreen extends StatelessWidget {
                 const SizedBox(width: 5),
                 Text(
                   entrega['status'],
-                  style: TextStyle(
+                  style: textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: entrega['status'] == 'Entregue' ? Colors.green : Colors.red,
                   ),
@@ -67,14 +68,13 @@ class DriverHistoryScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            // Detalhes da entrega
             Row(
               children: [
                 const Icon(Icons.access_time, size: 18, color: Colors.grey),
                 const SizedBox(width: 5),
                 Text(
                   'Data: ${entrega['data']}',
-                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  style: textTheme.bodyMedium,
                 ),
               ],
             ),
@@ -85,7 +85,7 @@ class DriverHistoryScreen extends StatelessWidget {
                 const SizedBox(width: 5),
                 Text(
                   'Origem: ${entrega['origem']}',
-                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  style: textTheme.bodyMedium,
                 ),
               ],
             ),
@@ -96,7 +96,7 @@ class DriverHistoryScreen extends StatelessWidget {
                 const SizedBox(width: 5),
                 Text(
                   'Destinatário: ${entrega['destinatario']}',
-                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  style: textTheme.bodyMedium,
                 ),
               ],
             ),
@@ -107,7 +107,7 @@ class DriverHistoryScreen extends StatelessWidget {
                 const SizedBox(width: 5),
                 Text(
                   'Valor recebido: R\$ ${entrega['preco']}',
-                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  style: textTheme.bodyMedium,
                 ),
               ],
             ),
@@ -132,7 +132,9 @@ class DriverHistoryScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: mockHistorico.map(buildHistoryCard).toList(),
+          children: mockHistorico
+              .map((entrega) => buildHistoryCard(context, entrega))
+              .toList(),
         ),
       ),
       bottomNavigationBar: AppBottomNavBar(
