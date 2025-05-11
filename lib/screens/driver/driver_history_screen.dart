@@ -8,8 +8,12 @@ class DriverHistoryScreen extends StatelessWidget {
   final List<Map<String, dynamic>> mockHistorico = const [
     {
       'id': 101,
-      'origem': 'Rua das Palmeiras, 45',
-      'destino': 'Av. Central, 789',
+      'origemEndereco': 'Rua das Palmeiras, 45',
+      'origemLat': -19.9245,
+      'origemLng': -43.9352, // Exemplo: BH
+      'destinoEndereco': 'Av. Central, 789',
+      'destinoLat': -19.9156,
+      'destinoLng': -43.9262, // Exemplo: BH
       'descricao': 'Pacote médio',
       'preco': 30.00,
       'destinatario': 'Ana',
@@ -18,8 +22,12 @@ class DriverHistoryScreen extends StatelessWidget {
     },
     {
       'id': 102,
-      'origem': 'Rua Azul, 123',
-      'destino': 'Rua Verde, 456',
+      'origemEndereco': 'Rua Azul, 123',
+      'origemLat': -23.5505,
+      'origemLng': -46.6333, // Exemplo: SP
+      'destinoEndereco': 'Rua Verde, 456',
+      'destinoLat': -23.5596,
+      'destinoLng': -46.6252, // Exemplo: SP
       'descricao': 'Documento importante',
       'preco': 20.00,
       'destinatario': 'Pedro',
@@ -27,6 +35,7 @@ class DriverHistoryScreen extends StatelessWidget {
       'status': 'Pendente',
     },
   ];
+
 
   Widget buildHistoryCard(BuildContext context, Map<String, dynamic> entrega) {
     final textTheme = Theme.of(context).textTheme;
@@ -92,7 +101,7 @@ class DriverHistoryScreen extends StatelessWidget {
                   const Icon(Icons.location_on, size: 18, color: Colors.grey),
                   const SizedBox(width: 5),
                   Text(
-                    'Origem: ${entrega['origem']}',
+                    'Origem: ${entrega['origemEndereco']}',
                     style: textTheme.bodyMedium,
                   ),
                 ],
