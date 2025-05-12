@@ -123,7 +123,7 @@ class DriverHistoryScreen extends StatelessWidget {
                   const Icon(Icons.monetization_on, size: 18, color: Colors.grey),
                   const SizedBox(width: 5),
                   Text(
-                    'Valor recebido: R\$ ${entrega['preco']}',
+                    'Valor: R\$ ${entrega['preco']}',
                     style: textTheme.bodyMedium,
                   ),
                 ],
