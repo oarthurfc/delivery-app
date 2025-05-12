@@ -113,7 +113,7 @@ class GetOrderScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => _mostrarModalConfirmacao(context, encomenda),
+                onPressed: () => _showConfirmationModal(context, encomenda),
                 icon: const Icon(Icons.check_circle_outline),
                 label: const Text('Aceitar encomenda'),
                 style: ElevatedButton.styleFrom(
@@ -160,7 +160,7 @@ class GetOrderScreen extends StatelessWidget {
   }
 }
 
-void _mostrarModalConfirmacao(BuildContext context, Map<String, dynamic> encomenda) {
+void _showConfirmationModal(BuildContext context, Map<String, dynamic> encomenda) {
   final LatLng origem = LatLng(encomenda['origemLat'], encomenda['origemLng']);
   final LatLng destino = LatLng(encomenda['destinoLat'], encomenda['destinoLng']);
 
@@ -177,7 +177,7 @@ void _mostrarModalConfirmacao(BuildContext context, Map<String, dynamic> encomen
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "Aceitar entrega",
+              "Aceitar encomenda",
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
