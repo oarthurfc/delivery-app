@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../widgets/common/app_bar_widget.dart';
 
 class GetOrderScreen extends StatelessWidget {
@@ -12,6 +14,10 @@ class GetOrderScreen extends StatelessWidget {
       'descricao': 'Caixa pequena',
       'preco': 25.00,
       'destinatario': 'Carlos',
+      'origemLat': -23.550520,
+      'origemLng': -46.633308,
+      'destinoLat': -23.558702,
+      'destinoLng': -46.625218,
     },
     {
       'id': 2,
@@ -20,6 +26,10 @@ class GetOrderScreen extends StatelessWidget {
       'descricao': 'Envelope com documentos',
       'preco': 15.50,
       'destinatario': 'Maria',
+      'origemLat': -23.564924,
+      'origemLng': -46.652888,
+      'destinoLat': -23.564924,
+      'destinoLng': -46.652888,
     },
   ];
 
@@ -103,9 +113,7 @@ class GetOrderScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  // Ação para aceitar a encomenda
-                },
+                onPressed: () => _mostrarModalConfirmacao(context, encomenda),
                 icon: const Icon(Icons.check_circle_outline),
                 label: const Text('Aceitar encomenda'),
                 style: ElevatedButton.styleFrom(
@@ -150,4 +158,99 @@ class GetOrderScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+void _mostrarModalConfirmacao(BuildContext context, Map<String, dynamic> encomenda) {
+  final LatLng origem = LatLng(encomenda['origemLat'], encomenda['origemLng']);
+  final LatLng destino = LatLng(encomenda['destinoLat'], encomenda['destinoLng']);
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Aceitar entrega",
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                height: 200,
+                width: double.infinity,
+                child: FlutterMap(
+                  options: MapOptions(
+                    center: origem,
+                    zoom: 13.0,
+                    interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.pinchZoom,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      subdomains: ['a', 'b', 'c'],
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: origem,
+                          width: 60,
+                          height: 60,
+                          child: const Icon(Icons.location_on, color: Colors.blue, size: 30),
+                        ),
+                        Marker(
+                          point: destino,
+                          width: 60,
+                          height: 60,
+                          child: const Icon(Icons.flag, color: Colors.red, size: 30),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text("Cancelar", style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Entrega aceita!")),
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text("Confirmar", style: TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          ],
+        ),
+      );
+    },
+  );
 }
