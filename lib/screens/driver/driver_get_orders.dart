@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/common/app_bar_widget.dart';
+
 class GetOrderScreen extends StatelessWidget {
   const GetOrderScreen({super.key});
 
@@ -22,27 +23,99 @@ class GetOrderScreen extends StatelessWidget {
     },
   ];
 
-  Widget buildOrderCard(Map<String, dynamic> encomenda) {
+  Widget buildOrderCard(BuildContext context, Map<String, dynamic> encomenda) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Card(
-      elevation: 2,
+      elevation: 5,
       margin: const EdgeInsets.symmetric(vertical: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Origem: ${encomenda['origem']}'),
-            Text('Destino: ${encomenda['destino']}'),
-            Text('Descrição: ${encomenda['descricao']}'),
-            Text('Destinatário: ${encomenda['destinatario']}'),
-            Text('Preço: R\$ ${encomenda['preco']}'),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () {
-                // Ação para aceitar a encomenda
-              },
-              child: const Text('Aceitar encomenda'),
+            Text(
+              'Encomenda Nº: ${encomenda['id']}',
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.location_on, size: 18, color: Colors.grey),
+                const SizedBox(width: 5),
+                Text(
+                  'Origem: ${encomenda['origem']}',
+                  style: textTheme.bodyMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.flag, size: 18, color: Colors.grey),
+                const SizedBox(width: 5),
+                Text(
+                  'Destino: ${encomenda['destino']}',
+                  style: textTheme.bodyMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.description, size: 18, color: Colors.grey),
+                const SizedBox(width: 5),
+                Text(
+                  'Descrição: ${encomenda['descricao']}',
+                  style: textTheme.bodyMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.account_circle, size: 18, color: Colors.grey),
+                const SizedBox(width: 5),
+                Text(
+                  'Destinatário: ${encomenda['destinatario']}',
+                  style: textTheme.bodyMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.monetization_on, size: 18, color: Colors.grey),
+                const SizedBox(width: 5),
+                Text(
+                  'Valor: R\$ ${encomenda['preco']}',
+                  style: textTheme.bodyMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  // Ação para aceitar a encomenda
+                },
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Aceitar encomenda'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            )
           ],
         ),
       ),
@@ -61,10 +134,12 @@ class GetOrderScreen extends StatelessWidget {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(32.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: mockOrders.map(buildOrderCard).toList(),
+          children: mockOrders
+              .map((encomenda) => buildOrderCard(context, encomenda))
+              .toList(),
         ),
       ),
       bottomNavigationBar: AppBottomNavBar(
@@ -76,4 +151,3 @@ class GetOrderScreen extends StatelessWidget {
     );
   }
 }
-
