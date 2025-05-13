@@ -7,13 +7,47 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
 
   const DriverDeliveryDetailsScreen({super.key, required this.encomenda});
 
+  String getFormattedAddress(Map<String, dynamic> address) {
+    return '${address['street']}, ${address['number']} - ${address['neighborhood']}, ${address['city']}';
+  }
+
+  String getFormattedDate(String isoDate) {
+    final parts = isoDate.split('-');
+    if (parts.length == 3) {
+      return '${parts[2]}/${parts[1]}/${parts[0]}'; // DD/MM/YYYY
+    }
+    return isoDate; // Retorna original se não conseguir formatar
+  }
+
+  String getStatusText(String status) {
+    switch (status) {
+      case 'DELIVERIED':
+        return 'Entregue';
+      case 'PENDING':
+        return 'Em andamento';
+      default:
+        return status;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    // Coordenadas da entrega (mock para compatibilidade com OpenStreetMap)
-    final LatLng origem = LatLng(encomenda['origemLat'], encomenda['origemLng']);
-    final LatLng destino = LatLng(encomenda['destinoLat'], encomenda['destinoLng']);
+    // Coordenadas da entrega com a nova estrutura de dados
+    final LatLng origem = LatLng(
+        encomenda['originAddress']['latitude'],
+        encomenda['originAddress']['longitude']
+    );
+
+    final LatLng destino = LatLng(
+        encomenda['destinationAddress']['latitude'],
+        encomenda['destinationAddress']['longitude']
+    );
+
+    final isDelivered = encomenda['status'] == 'DELIVERIED';
+    final statusText = getStatusText(encomenda['status']);
+    final formattedDate = getFormattedDate(encomenda['data']);
 
     return Scaffold(
       appBar: AppBar(
@@ -29,8 +63,8 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
             _buildDetailCard(
               context,
               Icons.check_circle,
-              'Status: ${encomenda['status']}',
-              iconColor: encomenda['status'] == 'Entregue' ? Colors.green : Colors.red, // Cor dependendo do status
+              'Status: $statusText',
+              iconColor: isDelivered ? Colors.green : Colors.red,
             ),
             const SizedBox(height: 12),
 
@@ -38,7 +72,7 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
             _buildDetailCard(
               context,
               Icons.access_time,
-              'Data: ${encomenda['data']}',
+              'Data: $formattedDate',
             ),
             const SizedBox(height: 12),
 
@@ -56,8 +90,8 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
                   options: MapOptions(
                     center: origem,
                     zoom: 13.0,
-                    minZoom: 10.0, // Impede que o mapa seja zoomado muito para longe
-                    maxZoom: 18.0, // Limita o zoom
+                    minZoom: 10.0,
+                    maxZoom: 18.0,
                     interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.pinchZoom,
                   ),
                   children: [
@@ -91,17 +125,17 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
             _buildDetailCard(
               context,
               Icons.location_on,
-              'Origem: ${encomenda['origemEndereco']}',
+              'Origem: ${getFormattedAddress(encomenda['originAddress'])}',
             ),
             _buildDetailCard(
               context,
               Icons.location_on_outlined,
-              'Destino: ${encomenda['destinoEndereco']}',
+              'Destino: ${getFormattedAddress(encomenda['destinationAddress'])}',
             ),
             _buildDetailCard(
               context,
               Icons.description,
-              'Descrição: ${encomenda['descricao']}',
+              'Descrição: ${encomenda['description']}',
             ),
             _buildDetailCard(
               context,
@@ -111,8 +145,23 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
             _buildDetailCard(
               context,
               Icons.monetization_on,
-              'Valor: R\$ ${encomenda['preco']}',
+              'Valor: R\$ ${encomenda['preco'].toStringAsFixed(2)}',
             ),
+            if (encomenda['imageUrl'] != null)
+              _buildDetailCard(
+                context,
+                Icons.image,
+                'Imagem disponível',
+                trailingWidget: encomenda['imageUrl'].toString().startsWith('http')
+                    ? Image.network(
+                  encomenda['imageUrl'],
+                  width: 50,
+                  height: 50,
+                  errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.broken_image, color: Colors.grey),
+                )
+                    : const Icon(Icons.image_not_supported),
+              ),
           ],
         ),
       ),
@@ -120,8 +169,13 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
   }
 
   // Função que gera o cartão de detalhes
-  Widget _buildDetailCard(BuildContext context, IconData icon, String text,
-      {Color iconColor = Colors.grey}) {
+  Widget _buildDetailCard(
+      BuildContext context,
+      IconData icon,
+      String text, {
+        Color iconColor = Colors.grey,
+        Widget? trailingWidget,
+      }) {
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -132,6 +186,7 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
           text,
           style: const TextStyle(fontSize: 16),
         ),
+        trailing: trailingWidget,
       ),
     );
   }

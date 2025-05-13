@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../widgets/common/app_bar_widget.dart';
-
+import '../driver/driver_delivery_details_screen.dart';
 
 class CustomerDeliveryHistoryScreen extends StatelessWidget {
-
   const CustomerDeliveryHistoryScreen({super.key});
 
   final List<Map<String, dynamic>> entregas = const [
@@ -84,17 +83,43 @@ class CustomerDeliveryHistoryScreen extends StatelessWidget {
     },
   ];
 
+  String getFormattedAddress(Map<String, dynamic> address) {
+    return '${address['street']}, ${address['number']} - ${address['neighborhood']}, ${address['city']}';
+  }
+
+  String getFormattedDate(String isoDate) {
+    final parts = isoDate.split('-');
+    if (parts.length == 3) {
+      return '${parts[2]}/${parts[1]}/${parts[0]}'; // DD/MM/YYYY
+    }
+    return isoDate; // Retorna original se não conseguir formatar
+  }
+
+  String getStatusText(String status) {
+    switch (status) {
+      case 'DELIVERIED':
+        return 'Entregue';
+      case 'PENDING':
+        return 'Em andamento';
+      default:
+        return status;
+    }
+  }
+
   Widget buildHistoryCard(BuildContext context, Map<String, dynamic> entrega) {
     final textTheme = Theme.of(context).textTheme;
+    final isDelivered = entrega['status'] == 'DELIVERIED';
+    final statusText = getStatusText(entrega['status']);
+    final formattedDate = getFormattedDate(entrega['data']);
 
     return GestureDetector(
       onTap: () {
-        //Navigator.push(
-          //context,
-         // MaterialPageRoute(
-           // builder: (_) => CustomerDeliveryHistoryScreen(entrega: entregas),
-          //),
-        //);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DriverDeliveryDetailsScreen(encomenda: entrega),
+          ),
+        );
       },
       child: Card(
         elevation: 5,
@@ -118,15 +143,15 @@ class CustomerDeliveryHistoryScreen extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    entrega['status'] == 'DELIVERIED' ? Icons.check_circle : Icons.error,
-                    color: entrega['status'] == 'DELIVERIED' ? Colors.green : Colors.red,
+                    isDelivered ? Icons.check_circle : Icons.error,
+                    color: isDelivered ? Colors.green : Colors.red,
                   ),
                   const SizedBox(width: 5),
                   Text(
-                    entrega['status'],
+                    statusText,
                     style: textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: entrega['status'] == 'DELIVERIED' ? Colors.green : Colors.red,
+                      color: isDelivered ? Colors.green : Colors.red,
                     ),
                   ),
                 ],
@@ -137,7 +162,7 @@ class CustomerDeliveryHistoryScreen extends StatelessWidget {
                   const Icon(Icons.access_time, size: 18, color: Colors.grey),
                   const SizedBox(width: 5),
                   Text(
-                    'Data: ${entrega['data']}',
+                    'Data: $formattedDate',
                     style: textTheme.bodyMedium,
                   ),
                 ],
@@ -148,9 +173,9 @@ class CustomerDeliveryHistoryScreen extends StatelessWidget {
                 children: [
                   const Icon(Icons.location_on, size: 18, color: Colors.grey),
                   const SizedBox(width: 5),
-                  Expanded( // ou Flexible
+                  Expanded(
                     child: Text(
-                      'Origem: ${entrega['originAddress']['street']}, ${entrega['originAddress']['number']} - ${entrega['originAddress']['neighborhood']}, ${entrega['originAddress']['city']}',
+                      'Origem: ${getFormattedAddress(entrega['originAddress'])}',
                       style: textTheme.bodyMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -158,16 +183,15 @@ class CustomerDeliveryHistoryScreen extends StatelessWidget {
                   ),
                 ],
               ),
-
               const SizedBox(height: 8),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.location_on, size: 18, color: Colors.grey),
+                  const Icon(Icons.flag, size: 18, color: Colors.grey),
                   const SizedBox(width: 5),
-                  Expanded( // ou Flexible
+                  Expanded(
                     child: Text(
-                      'Origem: ${entrega['destinationAddress']['street']}, ${entrega['originAddress']['number']} - ${entrega['originAddress']['neighborhood']}, ${entrega['originAddress']['city']}',
+                      'Destino: ${getFormattedAddress(entrega['destinationAddress'])}',
                       style: textTheme.bodyMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -175,15 +199,40 @@ class CustomerDeliveryHistoryScreen extends StatelessWidget {
                   ),
                 ],
               ),
-
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.account_circle, size: 18, color: Colors.grey),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Destinatário: ${entrega['destinatario']}',
+                    style: textTheme.bodyMedium,
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
                   const Icon(Icons.monetization_on, size: 18, color: Colors.grey),
                   const SizedBox(width: 5),
                   Text(
-                    'Valor: R\$ ${entrega['preco']}',
+                    'Valor: R\$ ${entrega['preco'].toStringAsFixed(2)}',
                     style: textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.description, size: 18, color: Colors.grey),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      'Descrição: ${entrega['description']}',
+                      style: textTheme.bodyMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -193,7 +242,6 @@ class CustomerDeliveryHistoryScreen extends StatelessWidget {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
