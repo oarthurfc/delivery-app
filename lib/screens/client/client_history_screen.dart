@@ -34,7 +34,7 @@ class CustomerDeliveryHistoryScreen extends StatelessWidget {
     },
     {
       'id': 2,
-      'status': 'DELIVERIED',
+      'status': 'PENDING',
       'data': '2025-04-28',
       'description': 'Entrega de eletrônicos',
       'imageUrl': 'https://exemplo.com/imagem2.jpg',
@@ -118,15 +118,15 @@ class CustomerDeliveryHistoryScreen extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    entrega['status'] == 'DELIVERED' ? Icons.check_circle : Icons.error,
-                    color: entrega['status'] == 'DELIVERED' ? Colors.green : Colors.red,
+                    entrega['status'] == 'DELIVERIED' ? Icons.check_circle : Icons.error,
+                    color: entrega['status'] == 'DELIVERIED' ? Colors.green : Colors.red,
                   ),
                   const SizedBox(width: 5),
                   Text(
                     entrega['status'],
                     style: textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: entrega['status'] == 'DELIVERED' ? Colors.green : Colors.red,
+                      color: entrega['status'] == 'DELIVERIED' ? Colors.green : Colors.red,
                     ),
                   ),
                 ],
