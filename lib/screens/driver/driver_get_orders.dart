@@ -7,36 +7,95 @@ import 'driver_delivery_details_screen.dart';
 class GetOrderScreen extends StatelessWidget {
   const GetOrderScreen({super.key});
 
-  final List<Map<String, dynamic>> mockOrders = const [
+  final List<Map<String, dynamic>> entregas = const [
     {
-      'id': 101,
-      'origemEndereco': 'Rua das Palmeiras, 45',
-      'origemLat': -19.9245,
-      'origemLng': -43.9352, // Exemplo: BH
-      'destinoEndereco': 'Av. Central, 789',
-      'destinoLat': -19.9156,
-      'destinoLng': -43.9262, // Exemplo: BH
-      'descricao': 'Pacote médio',
-      'preco': 30.00,
-      'destinatario': 'Ana',
-      'data': '10/05/2025',
-      'status': 'Em andamento',
+      'id': 1,
+      'status': 'DELIVERIED',
+      'data': '2025-05-10',
+      'description': 'Caixa com documentos',
+      'imageUrl': 'https://picsum.photos/200/300',
+      'destinatario': 'João Silva',
+      'preco': 45.90,
+      'originAddress': {
+        'street': 'Rua Alpha',
+        'number': '123',
+        'neighborhood': 'Centro',
+        'city': 'Belo Horizonte',
+        'latitude': -19.9245,
+        'longitude': -43.9352,
+      },
+      'destinationAddress': {
+        'street': 'Av. Beta',
+        'number': '456',
+        'neighborhood': 'Savassi',
+        'city': 'Belo Horizonte',
+        'latitude': -19.9380,
+        'longitude': -43.9270,
+      },
     },
     {
-      'id': 102,
-      'origemEndereco': 'Rua Azul, 123',
-      'origemLat': -23.5505,
-      'origemLng': -46.6333, // Exemplo: SP
-      'destinoEndereco': 'Rua Verde, 456',
-      'destinoLat': -23.5596,
-      'destinoLng': -46.6252, // Exemplo: SP
-      'descricao': 'Documento importante',
-      'preco': 20.00,
-      'destinatario': 'Pedro',
-      'data': '08/05/2025',
-      'status': 'Em andamento',
+      'id': 2,
+      'status': 'PENDING',
+      'data': '2025-04-28',
+      'description': 'Entrega de eletrônicos',
+      'imageUrl': 'https://picsum.photos/200/300',
+      'destinatario': 'Maria Oliveira',
+      'preco': 78.50,
+      'originAddress': {
+        'street': 'Rua das Flores',
+        'number': '10',
+        'neighborhood': 'Jardins',
+        'city': 'São Paulo',
+        'latitude': -23.5610,
+        'longitude': -46.6560,
+      },
+      'destinationAddress': {
+        'street': 'Av. Paulista',
+        'number': '1578',
+        'neighborhood': 'Bela Vista',
+        'city': 'São Paulo',
+        'latitude': -23.5640,
+        'longitude': -46.6525,
+      },
+    },
+    {
+      'id': 3,
+      'status': 'DELIVERIED',
+      'data': '2025-04-15',
+      'description': 'Livros escolares',
+      'imageUrl': 'https://exemplo.com/imagem3.jpg',
+      'destinatario': 'Carlos Mendes',
+      'preco': 32.00,
+      'originAddress': {
+        'street': 'Rua do Sol',
+        'number': '85',
+        'neighborhood': 'Boa Viagem',
+        'city': 'Recife',
+        'latitude': -8.1117,
+        'longitude': -34.9156,
+      },
+      'destinationAddress': {
+        'street': 'Rua da Aurora',
+        'number': '102',
+        'neighborhood': 'Santo Amaro',
+        'city': 'Recife',
+        'latitude': -8.0631,
+        'longitude': -34.8711,
+      },
     },
   ];
+
+  String getFormattedAddress(Map<String, dynamic> address) {
+    return '${address['street']}, ${address['number']} - ${address['neighborhood']}, ${address['city']}';
+  }
+
+  String getFormattedDate(String isoDate) {
+    final parts = isoDate.split('-');
+    if (parts.length == 3) {
+      return '${parts[2]}/${parts[1]}/${parts[0]}'; // DD/MM/YYYY
+    }
+    return isoDate;
+  }
 
   Widget buildOrderCard(BuildContext context, Map<String, dynamic> encomenda) {
     final textTheme = Theme.of(context).textTheme;
@@ -64,9 +123,13 @@ class GetOrderScreen extends StatelessWidget {
               children: [
                 const Icon(Icons.location_on, size: 18, color: Colors.grey),
                 const SizedBox(width: 5),
-                Text(
-                  'Origem: ${encomenda['origem']}',
-                  style: textTheme.bodyMedium,
+                Expanded(
+                  child: Text(
+                    'Origem: ${getFormattedAddress(encomenda['originAddress'])}',
+                    style: textTheme.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -75,9 +138,13 @@ class GetOrderScreen extends StatelessWidget {
               children: [
                 const Icon(Icons.flag, size: 18, color: Colors.grey),
                 const SizedBox(width: 5),
-                Text(
-                  'Destino: ${encomenda['destino']}',
-                  style: textTheme.bodyMedium,
+                Expanded(
+                  child: Text(
+                    'Destino: ${getFormattedAddress(encomenda['destinationAddress'])}',
+                    style: textTheme.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -86,9 +153,13 @@ class GetOrderScreen extends StatelessWidget {
               children: [
                 const Icon(Icons.description, size: 18, color: Colors.grey),
                 const SizedBox(width: 5),
-                Text(
-                  'Descrição: ${encomenda['descricao']}',
-                  style: textTheme.bodyMedium,
+                Expanded(
+                  child: Text(
+                    'Descrição: ${encomenda['description']}',
+                    style: textTheme.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -109,7 +180,7 @@ class GetOrderScreen extends StatelessWidget {
                 const Icon(Icons.monetization_on, size: 18, color: Colors.grey),
                 const SizedBox(width: 5),
                 Text(
-                  'Valor: R\$ ${encomenda['preco']}',
+                  'Valor: R\$ ${encomenda['preco'].toStringAsFixed(2)}',
                   style: textTheme.bodyMedium,
                 ),
               ],
@@ -150,7 +221,7 @@ class GetOrderScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: mockOrders
+          children: entregas
               .map((encomenda) => buildOrderCard(context, encomenda))
               .toList(),
         ),
@@ -166,13 +237,19 @@ class GetOrderScreen extends StatelessWidget {
 }
 
 void _showConfirmationModal(BuildContext context, Map<String, dynamic> encomenda) {
-  final LatLng origem = LatLng(encomenda['origemLat'], encomenda['origemLng']);
-  final LatLng destino = LatLng(encomenda['destinoLat'], encomenda['destinoLng']);
+  final LatLng origem = LatLng(
+    encomenda['originAddress']['latitude'],
+    encomenda['originAddress']['longitude'],
+  );
+  final LatLng destino = LatLng(
+    encomenda['destinationAddress']['latitude'],
+    encomenda['destinationAddress']['longitude'],
+  );
 
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    shape: RoundedRectangleBorder(
+    shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (context) {
@@ -183,7 +260,9 @@ void _showConfirmationModal(BuildContext context, Map<String, dynamic> encomenda
           children: [
             Text(
               "Aceitar encomenda",
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
