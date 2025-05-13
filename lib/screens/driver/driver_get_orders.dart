@@ -2,35 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../widgets/common/app_bar_widget.dart';
-import 'driver_track_order.dart';
+import 'driver_delivery_details_screen.dart';
 
 class GetOrderScreen extends StatelessWidget {
   const GetOrderScreen({super.key});
 
   final List<Map<String, dynamic>> mockOrders = const [
     {
-      'id': 1,
-      'origem': 'Rua A, 123',
-      'destino': 'Rua B, 456',
-      'descricao': 'Caixa pequena',
-      'preco': 25.00,
-      'destinatario': 'Carlos',
-      'origemLat': -23.550520,
-      'origemLng': -46.633308,
-      'destinoLat': -23.558702,
-      'destinoLng': -46.625218,
+      'id': 101,
+      'origemEndereco': 'Rua das Palmeiras, 45',
+      'origemLat': -19.9245,
+      'origemLng': -43.9352, // Exemplo: BH
+      'destinoEndereco': 'Av. Central, 789',
+      'destinoLat': -19.9156,
+      'destinoLng': -43.9262, // Exemplo: BH
+      'descricao': 'Pacote médio',
+      'preco': 30.00,
+      'destinatario': 'Ana',
+      'data': '10/05/2025',
+      'status': 'Em andamento',
     },
     {
-      'id': 2,
-      'origem': 'Av. Paulista, 1000',
-      'destino': 'Rua das Flores, 200',
-      'descricao': 'Envelope com documentos',
-      'preco': 15.50,
-      'destinatario': 'Maria',
-      'origemLat': -23.564924,
-      'origemLng': -46.652888,
-      'destinoLat': -23.564924,
-      'destinoLng': -46.652888,
+      'id': 102,
+      'origemEndereco': 'Rua Azul, 123',
+      'origemLat': -23.5505,
+      'origemLng': -46.6333, // Exemplo: SP
+      'destinoEndereco': 'Rua Verde, 456',
+      'destinoLat': -23.5596,
+      'destinoLng': -46.6252, // Exemplo: SP
+      'descricao': 'Documento importante',
+      'preco': 20.00,
+      'destinatario': 'Pedro',
+      'data': '08/05/2025',
+      'status': 'Em andamento',
     },
   ];
 
@@ -178,7 +182,7 @@ void _showConfirmationModal(BuildContext context, Map<String, dynamic> encomenda
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "Aceitar entrega",
+              "Aceitar encomenda",
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
@@ -239,7 +243,7 @@ void _showConfirmationModal(BuildContext context, Map<String, dynamic> encomenda
                       Navigator.of(context).pop(); // Fecha o modal
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => TrackOrderScreen(encomenda: encomenda),
+                          builder: (_) => DriverDeliveryDetailsScreen(encomenda: encomenda),
                         ),
                       );
                     },

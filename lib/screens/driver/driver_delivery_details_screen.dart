@@ -3,21 +3,21 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 class DriverDeliveryDetailsScreen extends StatelessWidget {
-  final Map<String, dynamic> entrega;
+  final Map<String, dynamic> encomenda;
 
-  const DriverDeliveryDetailsScreen({super.key, required this.entrega});
+  const DriverDeliveryDetailsScreen({super.key, required this.encomenda});
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     // Coordenadas da entrega (mock para compatibilidade com OpenStreetMap)
-    final LatLng origem = LatLng(entrega['origemLat'], entrega['origemLng']);
-    final LatLng destino = LatLng(entrega['destinoLat'], entrega['destinoLng']);
+    final LatLng origem = LatLng(encomenda['origemLat'], encomenda['origemLng']);
+    final LatLng destino = LatLng(encomenda['destinoLat'], encomenda['destinoLng']);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Entrega n°${entrega['id']}'),
+        title: Text('Entrega n°${encomenda['id']}'),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -29,8 +29,8 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
             _buildDetailCard(
               context,
               Icons.check_circle,
-              'Status: ${entrega['status']}',
-              iconColor: entrega['status'] == 'Entregue' ? Colors.green : Colors.red, // Cor dependendo do status
+              'Status: ${encomenda['status']}',
+              iconColor: encomenda['status'] == 'Entregue' ? Colors.green : Colors.red, // Cor dependendo do status
             ),
             const SizedBox(height: 12),
 
@@ -38,7 +38,7 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
             _buildDetailCard(
               context,
               Icons.access_time,
-              'Data: ${entrega['data']}',
+              'Data: ${encomenda['data']}',
             ),
             const SizedBox(height: 12),
 
@@ -91,27 +91,27 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
             _buildDetailCard(
               context,
               Icons.location_on,
-              'Origem: ${entrega['origemEndereco']}',
+              'Origem: ${encomenda['origemEndereco']}',
             ),
             _buildDetailCard(
               context,
               Icons.location_on_outlined,
-              'Destino: ${entrega['destinoEndereco']}',
+              'Destino: ${encomenda['destinoEndereco']}',
             ),
             _buildDetailCard(
               context,
               Icons.description,
-              'Descrição: ${entrega['descricao']}',
+              'Descrição: ${encomenda['descricao']}',
             ),
             _buildDetailCard(
               context,
               Icons.account_circle,
-              'Destinatário: ${entrega['destinatario']}',
+              'Destinatário: ${encomenda['destinatario']}',
             ),
             _buildDetailCard(
               context,
               Icons.monetization_on,
-              'Valor: R\$ ${entrega['preco']}',
+              'Valor: R\$ ${encomenda['preco']}',
             ),
           ],
         ),

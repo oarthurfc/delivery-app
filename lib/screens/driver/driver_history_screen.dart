@@ -18,7 +18,7 @@ class DriverHistoryScreen extends StatelessWidget {
       'preco': 30.00,
       'destinatario': 'Ana',
       'data': '10/05/2025',
-      'status': 'Entregue',
+      'status': 'Em andamento',
     },
     {
       'id': 102,
@@ -32,7 +32,7 @@ class DriverHistoryScreen extends StatelessWidget {
       'preco': 20.00,
       'destinatario': 'Pedro',
       'data': '08/05/2025',
-      'status': 'Pendente',
+      'status': 'Em andamento',
     },
   ];
 
@@ -45,7 +45,7 @@ class DriverHistoryScreen extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => DriverDeliveryDetailsScreen(entrega: entrega),
+            builder: (_) => DriverDeliveryDetailsScreen(encomenda: entrega),
           ),
         );
       },
