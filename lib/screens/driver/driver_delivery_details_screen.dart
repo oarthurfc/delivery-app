@@ -12,7 +12,6 @@ class DriverDeliveryDetailsScreen extends StatefulWidget {
 }
 
 class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScreen> {
-  // Controla a expansão da imagem
   bool _isImageExpanded = false;
 
   String getFormattedAddress(Map<String, dynamic> address) {
@@ -24,7 +23,7 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
     if (parts.length == 3) {
       return '${parts[2]}/${parts[1]}/${parts[0]}'; // DD/MM/YYYY
     }
-    return isoDate; // Retorna original se não conseguir formatar
+    return isoDate;
   }
 
   String getStatusText(String status) {
@@ -38,11 +37,25 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
     }
   }
 
+  Color getStatusColor(String status) {
+    switch (status) {
+      case 'DELIVERIED':
+        return Colors.green;
+      case 'PENDING':
+        return Colors.amber;
+      default:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final isDelivered = widget.encomenda['status'] == 'DELIVERIED';
+    final statusText = getStatusText(widget.encomenda['status']);
+    final statusColor = getStatusColor(widget.encomenda['status']);
+    final formattedDate = getFormattedDate(widget.encomenda['data']);
 
-    // Coordenadas da entrega com a nova estrutura de dados
+    // Coordenadas da entrega
     final LatLng origem = LatLng(
         widget.encomenda['originAddress']['latitude'],
         widget.encomenda['originAddress']['longitude']
@@ -53,151 +66,336 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
         widget.encomenda['destinationAddress']['longitude']
     );
 
-    final isDelivered = widget.encomenda['status'] == 'DELIVERIED';
-    final statusText = getStatusText(widget.encomenda['status']);
-    final formattedDate = getFormattedDate(widget.encomenda['data']);
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Entrega n°${widget.encomenda['id']}'),
+        title: const Text('Detalhes da Encomenda'),
         centerTitle: true,
+        elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status (primeiro item mostrado)
-            _buildDetailCard(
-              context,
-              Icons.check_circle,
-              'Status: $statusText',
-              iconColor: isDelivered ? Colors.green : Colors.red,
-            ),
-            const SizedBox(height: 12),
-
-            // Data (segundo item mostrado)
-            _buildDetailCard(
-              context,
-              Icons.access_time,
-              'Data: $formattedDate',
-            ),
-            const SizedBox(height: 12),
-
-            // Mapa (terceiro item mostrado)
-            Text(
-              'Rota no Mapa:',
-              style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                height: 250,
-                child: FlutterMap(
-                  options: MapOptions(
-                    center: origem,
-                    zoom: 13.0,
-                    minZoom: 10.0,
-                    maxZoom: 18.0,
-                    interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.pinchZoom,
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      subdomains: ['a', 'b', 'c'],
+      body: Column(
+        children: [
+          // 1. Parte superior fixa (status e data)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            color: Theme.of(context).primaryColor.withOpacity(0.05),
+            child: Row(
+              children: [
+                // Status badge
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: statusColor, width: 1),
                     ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: origem,
-                          width: 60,
-                          height: 60,
-                          child: const Icon(Icons.location_on, color: Colors.blue, size: 32),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isDelivered ? Icons.check_circle : Icons.pending_actions,
+                          color: statusColor,
+                          size: 18,
                         ),
-                        Marker(
-                          point: destino,
-                          width: 60,
-                          height: 60,
-                          child: const Icon(Icons.flag, color: Colors.red, size: 32),
+                        const SizedBox(width: 6),
+                        Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
+                const SizedBox(width: 12),
+                // Data
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Data:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      Text(
+                        formattedDate,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 2. Conteúdo com rolagem
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 3. Mapa (área central, destaque visual)
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Rota no Mapa',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: SizedBox(
+                              height: 220,
+                              width: double.infinity,
+                              child: FlutterMap(
+                                options: MapOptions(
+                                  center: origem,
+                                  zoom: 13.0,
+                                  minZoom: 10.0,
+                                  maxZoom: 18.0,
+                                  interactiveFlags: InteractiveFlag.all,
+                                ),
+                                children: [
+                                  TileLayer(
+                                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    subdomains: ['a', 'b', 'c'],
+                                  ),
+                                  MarkerLayer(
+                                    markers: [
+                                      Marker(
+                                        point: origem,
+                                        width: 60,
+                                        height: 60,
+                                        child: const Icon(Icons.location_on, color: Colors.blue, size: 32),
+                                      ),
+                                      Marker(
+                                        point: destino,
+                                        width: 60,
+                                        height: 60,
+                                        child: const Icon(Icons.flag, color: Colors.red, size: 32),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 4. Informações da entrega
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Informações da Entrega',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Origem
+                            _buildInfoRow(
+                              Icons.location_on,
+                              'Origem',
+                              getFormattedAddress(widget.encomenda['originAddress']),
+                              Colors.blue,
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Destino
+                            _buildInfoRow(
+                              Icons.flag,
+                              'Destino',
+                              getFormattedAddress(widget.encomenda['destinationAddress']),
+                              Colors.red,
+                            ),
+
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16.0),
+                              child: Divider(height: 1),
+                            ),
+
+                            // Descrição
+                            _buildInfoRow(
+                              Icons.description,
+                              'Descrição',
+                              widget.encomenda['description'],
+                              Colors.grey,
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Destinatário
+                            _buildInfoRow(
+                              Icons.person,
+                              'Destinatário',
+                              widget.encomenda['destinatario'],
+                              Colors.grey,
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Valor
+                            _buildInfoRow(
+                              Icons.monetization_on,
+                              'Valor',
+                              'R\$ ${widget.encomenda['preco'].toStringAsFixed(2)}',
+                              Colors.green,
+                              isValueField: true,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // 5. Imagem do Produto (Expansível)
+                  if (widget.encomenda['imageUrl'] != null)
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: _buildExpandableImageSection(),
+                    ),
+
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-
-            // Informações detalhadas (restante das informações)
-            _buildDetailCard(
-              context,
-              Icons.location_on,
-              'Origem: ${getFormattedAddress(widget.encomenda['originAddress'])}',
-            ),
-            _buildDetailCard(
-              context,
-              Icons.location_on_outlined,
-              'Destino: ${getFormattedAddress(widget.encomenda['destinationAddress'])}',
-            ),
-            _buildDetailCard(
-              context,
-              Icons.description,
-              'Descrição: ${widget.encomenda['description']}',
-            ),
-            _buildDetailCard(
-              context,
-              Icons.account_circle,
-              'Destinatário: ${widget.encomenda['destinatario']}',
-            ),
-            _buildDetailCard(
-              context,
-              Icons.monetization_on,
-              'Valor: R\$ ${widget.encomenda['preco'].toStringAsFixed(2)}',
-            ),
-            if (widget.encomenda['imageUrl'] != null)
-              _buildExpandableImageCard(context),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  // Card expandível para a imagem
-  Widget _buildExpandableImageCard(BuildContext context) {
+  Widget _buildInfoRow(IconData icon, String label, String value, Color iconColor, {bool isValueField = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: iconColor, size: 22),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: isValueField ? 18 : 16,
+                  fontWeight: isValueField ? FontWeight.bold : FontWeight.normal,
+                  color: isValueField ? Colors.green.shade700 : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpandableImageSection() {
     final imageUrl = widget.encomenda['imageUrl'];
     final hasValidImageUrl = imageUrl != null && imageUrl.toString().startsWith('http');
 
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: InkWell(
         onTap: () {
           setState(() {
             _isImageExpanded = !_isImageExpanded;
           });
         },
+        borderRadius: BorderRadius.circular(12),
         child: Column(
           children: [
-            ListTile(
-              leading: const Icon(Icons.image, size: 30, color: Colors.grey),
-              title: const Text('Imagem disponível', style: TextStyle(fontSize: 16)),
-              trailing: Icon(
-                _isImageExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                color: Colors.grey,
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.image, color: Colors.purple, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Ver Imagem do Produto',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _isImageExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: Colors.grey,
+                  ),
+                ],
               ),
             ),
             if (_isImageExpanded && hasValidImageUrl)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: GestureDetector(
-                  onTap: () {
-                    // Opcionalmente, você pode adicionar um visualizador de imagem em tela cheia aqui
-                    _showFullScreenImage(context, imageUrl);
-                  },
-                  child: Container(
-                    constraints: const BoxConstraints(maxHeight: 300),
+              GestureDetector(
+                onTap: () => _showFullScreenImage(context, imageUrl),
+                child: Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxHeight: 350),
+                  padding: const EdgeInsets.only(bottom: 16.0, left: 16.0, right: 16.0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
                     child: Image.network(
                       imageUrl,
                       fit: BoxFit.contain,
@@ -205,7 +403,14 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                       const Center(
                         child: Padding(
                           padding: EdgeInsets.all(16.0),
-                          child: Icon(Icons.broken_image, color: Colors.grey, size: 64),
+                          child: Column(
+                            children: [
+                              Icon(Icons.broken_image, color: Colors.grey, size: 64),
+                              SizedBox(height: 16),
+                              Text('Não foi possível carregar a imagem',
+                                  style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
                         ),
                       ),
                       loadingBuilder: (context, child, loadingProgress) {
@@ -214,7 +419,7 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                         }
                         return Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(16.0),
+                            padding: const EdgeInsets.symmetric(vertical: 32.0),
                             child: CircularProgressIndicator(
                               value: loadingProgress.expectedTotalBytes != null
                                   ? loadingProgress.cumulativeBytesLoaded /
@@ -232,9 +437,15 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
               const Padding(
                 padding: EdgeInsets.all(16.0),
                 child: Center(
-                  child: Text(
-                    'Imagem não disponível ou formato inválido',
-                    style: TextStyle(color: Colors.grey),
+                  child: Column(
+                    children: [
+                      Icon(Icons.image_not_supported, color: Colors.grey, size: 64),
+                      SizedBox(height: 16),
+                      Text(
+                        'Imagem não disponível ou formato inválido',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -244,7 +455,6 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
     );
   }
 
-  // Método para exibir a imagem em tela cheia
   void _showFullScreenImage(BuildContext context, String imageUrl) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -268,29 +478,6 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  // Função que gera o cartão de detalhes
-  Widget _buildDetailCard(
-      BuildContext context,
-      IconData icon,
-      String text, {
-        Color iconColor = Colors.grey,
-        Widget? trailingWidget,
-      }) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Icon(icon, size: 30, color: iconColor),
-        title: Text(
-          text,
-          style: const TextStyle(fontSize: 16),
-        ),
-        trailing: trailingWidget,
       ),
     );
   }
