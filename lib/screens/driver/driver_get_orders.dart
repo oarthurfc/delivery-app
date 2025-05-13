@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../widgets/common/app_bar_widget.dart';
+import 'driver_track_order.dart';
 
 class GetOrderScreen extends StatelessWidget {
   const GetOrderScreen({super.key});
@@ -177,7 +178,7 @@ void _showConfirmationModal(BuildContext context, Map<String, dynamic> encomenda
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "Aceitar encomenda",
+              "Aceitar entrega",
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
@@ -235,9 +236,11 @@ void _showConfirmationModal(BuildContext context, Map<String, dynamic> encomenda
                 Expanded(
                   child: FilledButton(
                     onPressed: () {
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Entrega aceita!")),
+                      Navigator.of(context).pop(); // Fecha o modal
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => TrackOrderScreen(encomenda: encomenda),
+                        ),
                       );
                     },
                     child: const Padding(
