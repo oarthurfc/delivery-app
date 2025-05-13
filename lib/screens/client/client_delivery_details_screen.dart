@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-class DriverDeliveryDetailsScreen extends StatefulWidget {
+class CustomerDeliveryDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> encomenda;
 
-  const DriverDeliveryDetailsScreen({super.key, required this.encomenda});
+  const CustomerDeliveryDetailsScreen({super.key, required this.encomenda});
 
   @override
-  State<DriverDeliveryDetailsScreen> createState() => _DriverDeliveryDetailsScreenState();
+  State<CustomerDeliveryDetailsScreen> createState() => _CustomerDeliveryDetailsScreenState();
 }
 
-class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScreen> {
+class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsScreen> {
   bool _isImageExpanded = false;
 
   String getFormattedAddress(Map<String, dynamic> address) {

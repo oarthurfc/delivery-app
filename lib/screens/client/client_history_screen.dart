@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../widgets/common/app_bar_widget.dart';
-import '../driver/driver_delivery_details_screen.dart';
+import 'client_delivery_details_screen.dart';
+
 
 class CustomerDeliveryHistoryScreen extends StatelessWidget {
   const CustomerDeliveryHistoryScreen({super.key});
@@ -117,7 +118,7 @@ class CustomerDeliveryHistoryScreen extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => DriverDeliveryDetailsScreen(encomenda: entrega),
+            builder: (_) => CustomerDeliveryDetailsScreen(encomenda: entrega),
           ),
         );
       },
