@@ -2,10 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-class DriverDeliveryDetailsScreen extends StatelessWidget {
+class DriverDeliveryDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> encomenda;
 
   const DriverDeliveryDetailsScreen({super.key, required this.encomenda});
+
+  @override
+  State<DriverDeliveryDetailsScreen> createState() => _DriverDeliveryDetailsScreenState();
+}
+
+class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScreen> {
+  // Controla a expansão da imagem
+  bool _isImageExpanded = false;
 
   String getFormattedAddress(Map<String, dynamic> address) {
     return '${address['street']}, ${address['number']} - ${address['neighborhood']}, ${address['city']}';
@@ -36,22 +44,22 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
 
     // Coordenadas da entrega com a nova estrutura de dados
     final LatLng origem = LatLng(
-        encomenda['originAddress']['latitude'],
-        encomenda['originAddress']['longitude']
+        widget.encomenda['originAddress']['latitude'],
+        widget.encomenda['originAddress']['longitude']
     );
 
     final LatLng destino = LatLng(
-        encomenda['destinationAddress']['latitude'],
-        encomenda['destinationAddress']['longitude']
+        widget.encomenda['destinationAddress']['latitude'],
+        widget.encomenda['destinationAddress']['longitude']
     );
 
-    final isDelivered = encomenda['status'] == 'DELIVERIED';
-    final statusText = getStatusText(encomenda['status']);
-    final formattedDate = getFormattedDate(encomenda['data']);
+    final isDelivered = widget.encomenda['status'] == 'DELIVERIED';
+    final statusText = getStatusText(widget.encomenda['status']);
+    final formattedDate = getFormattedDate(widget.encomenda['data']);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Entrega n°${encomenda['id']}'),
+        title: Text('Entrega n°${widget.encomenda['id']}'),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -125,44 +133,140 @@ class DriverDeliveryDetailsScreen extends StatelessWidget {
             _buildDetailCard(
               context,
               Icons.location_on,
-              'Origem: ${getFormattedAddress(encomenda['originAddress'])}',
+              'Origem: ${getFormattedAddress(widget.encomenda['originAddress'])}',
             ),
             _buildDetailCard(
               context,
               Icons.location_on_outlined,
-              'Destino: ${getFormattedAddress(encomenda['destinationAddress'])}',
+              'Destino: ${getFormattedAddress(widget.encomenda['destinationAddress'])}',
             ),
             _buildDetailCard(
               context,
               Icons.description,
-              'Descrição: ${encomenda['description']}',
+              'Descrição: ${widget.encomenda['description']}',
             ),
             _buildDetailCard(
               context,
               Icons.account_circle,
-              'Destinatário: ${encomenda['destinatario']}',
+              'Destinatário: ${widget.encomenda['destinatario']}',
             ),
             _buildDetailCard(
               context,
               Icons.monetization_on,
-              'Valor: R\$ ${encomenda['preco'].toStringAsFixed(2)}',
+              'Valor: R\$ ${widget.encomenda['preco'].toStringAsFixed(2)}',
             ),
-            if (encomenda['imageUrl'] != null)
-              _buildDetailCard(
-                context,
-                Icons.image,
-                'Imagem disponível',
-                trailingWidget: encomenda['imageUrl'].toString().startsWith('http')
-                    ? Image.network(
-                  encomenda['imageUrl'],
-                  width: 50,
-                  height: 50,
-                  errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.broken_image, color: Colors.grey),
-                )
-                    : const Icon(Icons.image_not_supported),
+            if (widget.encomenda['imageUrl'] != null)
+              _buildExpandableImageCard(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Card expandível para a imagem
+  Widget _buildExpandableImageCard(BuildContext context) {
+    final imageUrl = widget.encomenda['imageUrl'];
+    final hasValidImageUrl = imageUrl != null && imageUrl.toString().startsWith('http');
+
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _isImageExpanded = !_isImageExpanded;
+          });
+        },
+        child: Column(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.image, size: 30, color: Colors.grey),
+              title: const Text('Imagem disponível', style: TextStyle(fontSize: 16)),
+              trailing: Icon(
+                _isImageExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                color: Colors.grey,
+              ),
+            ),
+            if (_isImageExpanded && hasValidImageUrl)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16.0),
+                child: GestureDetector(
+                  onTap: () {
+                    // Opcionalmente, você pode adicionar um visualizador de imagem em tela cheia aqui
+                    _showFullScreenImage(context, imageUrl);
+                  },
+                  child: Container(
+                    constraints: const BoxConstraints(maxHeight: 300),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Icon(Icons.broken_image, color: Colors.grey, size: 64),
+                        ),
+                      ),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) {
+                          return child;
+                        }
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            if (_isImageExpanded && !hasValidImageUrl)
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Center(
+                  child: Text(
+                    'Imagem não disponível ou formato inválido',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Método para exibir a imagem em tela cheia
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Visualização da imagem'),
+            backgroundColor: Colors.black,
+          ),
+          backgroundColor: Colors.black,
+          body: Center(
+            child: InteractiveViewer(
+              boundaryMargin: const EdgeInsets.all(20.0),
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.broken_image, color: Colors.white, size: 100),
+              ),
+            ),
+          ),
         ),
       ),
     );

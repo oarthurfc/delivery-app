@@ -11,7 +11,7 @@ class DriverHistoryScreen extends StatelessWidget {
       'status': 'DELIVERIED',
       'data': '2025-05-10',
       'description': 'Caixa com documentos',
-      'imageUrl': 'https://exemplo.com/imagem1.jpg',
+      'imageUrl': 'https://picsum.photos/200/300',
       'destinatario': 'João Silva',
       'preco': 45.90,
       'originAddress': {
@@ -36,7 +36,7 @@ class DriverHistoryScreen extends StatelessWidget {
       'status': 'PENDING',
       'data': '2025-04-28',
       'description': 'Entrega de eletrônicos',
-      'imageUrl': 'https://exemplo.com/imagem2.jpg',
+      'imageUrl': 'https://picsum.photos/200/300',
       'destinatario': 'Maria Oliveira',
       'preco': 78.50,
       'originAddress': {
@@ -61,7 +61,7 @@ class DriverHistoryScreen extends StatelessWidget {
       'status': 'DELIVERIED',
       'data': '2025-04-15',
       'description': 'Livros escolares',
-      'imageUrl': 'https://exemplo.com/imagem3.jpg',
+      'imageUrl': 'https://picsum.photos/200/300',
       'destinatario': 'Carlos Mendes',
       'preco': 32.00,
       'originAddress': {
