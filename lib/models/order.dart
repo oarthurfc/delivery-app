@@ -6,7 +6,7 @@ class Order {
   final int id;
   final int customerId;
   final int? driverId;
-  final OrderStatus status;
+   OrderStatus status;
   final Address originAddress;
   final Address destinationAddress;
   final String description;

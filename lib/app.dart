@@ -8,7 +8,7 @@ import 'screens/driver/driver_home_screen.dart';
 class DeliveryApp extends StatefulWidget {
   final ThemeService themeService;
 
-  const DeliveryApp({Key? key, required this.themeService}) : super(key: key);
+  const DeliveryApp({super.key, required this.themeService});
 
   @override
   State<DeliveryApp> createState() => _DeliveryAppState();
