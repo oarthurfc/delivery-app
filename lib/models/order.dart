@@ -5,12 +5,12 @@ enum OrderStatus { PENDING, ACCEPTED, ON_COURSE, DELIVERIED }
 class Order {
   final int id;
   final int customerId;
-  final int? driverId;
+   int? driverId;
    OrderStatus status;
   final Address originAddress;
   final Address destinationAddress;
   final String description;
-  final String imageUrl;
+   String imageUrl;
 
   Order({
     required this.id,

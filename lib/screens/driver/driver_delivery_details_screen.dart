@@ -1,3 +1,7 @@
+import 'package:delivery/database/repository/OrderRepository.dart';
+import 'package:delivery/models/address.dart';
+import 'package:delivery/models/order.dart';
+import 'package:delivery/screens/driver/driver_end_delivey.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -302,12 +306,37 @@ if (widget.encomenda['status'] == 'ON_COURSE')
     child: ElevatedButton.icon(
       onPressed: () {
         Navigator.of(context).push(
-          // Substitua pelo widget correto quando a tela FinalizarEntregaScreen estiver pronta
+          // Conferir se está funcionando aqui depois de criar a tela
           MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(title: const Text('Finalizar Entrega')),
-              body: const Center(child: Text('Tela de Finalizar Entrega (em desenvolvimento)')),
+        builder: (_) => FinalizarEntregaScreen(
+          //A encomenda está sendo mockada no momento
+            encomenda: Order(
+            id: 1,
+            description: "Entrega de livros",
+            
+            
+            status: OrderStatus.ON_COURSE,
+            
+            originAddress: Address(
+              street: "Rua das Flores",
+              number: "123",
+              neighborhood: "Centro",
+              city: "Cidade Exemplo",
+              latitude: -23.55052,
+              longitude: -46.633308, id: 1,
             ),
+            destinationAddress: Address(
+              street: "Avenida Brasil",
+              number: "456",
+              neighborhood: "Jardim América",
+              city: "Cidade Exemplo",
+              latitude: -23.559616,
+              longitude: -46.658917, id: 1,
+            ),
+            imageUrl: "https://via.placeholder.com/300x200.png?text=Produto", customerId: 1,
+            ),
+          repository: OrderRepository(),
+        ),
           ),
         );
       },
