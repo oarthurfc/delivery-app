@@ -12,10 +12,12 @@ class DriverDeliveryDetailsScreen extends StatefulWidget {
   const DriverDeliveryDetailsScreen({super.key, required this.encomenda});
 
   @override
-  State<DriverDeliveryDetailsScreen> createState() => _DriverDeliveryDetailsScreenState();
+  State<DriverDeliveryDetailsScreen> createState() =>
+      _DriverDeliveryDetailsScreenState();
 }
 
-class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScreen> {
+class _DriverDeliveryDetailsScreenState
+    extends State<DriverDeliveryDetailsScreen> {
   bool _isImageExpanded = false;
 
   String getFormattedAddress(Map<String, dynamic> address) {
@@ -67,13 +69,13 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
 
     // Coordenadas da entrega
     final LatLng origem = LatLng(
-        widget.encomenda['originAddress']['latitude'],
-        widget.encomenda['originAddress']['longitude']
+      widget.encomenda['originAddress']['latitude'],
+      widget.encomenda['originAddress']['longitude'],
     );
 
     final LatLng destino = LatLng(
-        widget.encomenda['destinationAddress']['latitude'],
-        widget.encomenda['destinationAddress']['longitude']
+      widget.encomenda['destinationAddress']['latitude'],
+      widget.encomenda['destinationAddress']['longitude'],
     );
 
     return Scaffold(
@@ -86,7 +88,10 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
         children: [
           // 1. Parte superior fixa (status e data)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 12.0,
+            ),
             color: colorScheme.primary.withOpacity(0.05),
             child: Row(
               children: [
@@ -94,7 +99,10 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                 Expanded(
                   flex: 3,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8.0,
+                      horizontal: 12.0,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
@@ -104,7 +112,9 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isDelivered ? Icons.check_circle : Icons.pending_actions,
+                          isDelivered
+                              ? Icons.check_circle
+                              : Icons.pending_actions,
                           color: statusColor,
                           size: 18,
                         ),
@@ -185,7 +195,8 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                                 ),
                                 children: [
                                   TileLayer(
-                                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    urlTemplate:
+                                        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                                     subdomains: ['a', 'b', 'c'],
                                   ),
                                   MarkerLayer(
@@ -194,13 +205,21 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                                         point: origem,
                                         width: 60,
                                         height: 60,
-                                        child: const Icon(Icons.location_on, color: Colors.blue, size: 32),
+                                        child: const Icon(
+                                          Icons.location_on,
+                                          color: Colors.blue,
+                                          size: 32,
+                                        ),
                                       ),
                                       Marker(
                                         point: destino,
                                         width: 60,
                                         height: 60,
-                                        child: const Icon(Icons.flag, color: Colors.red, size: 32),
+                                        child: const Icon(
+                                          Icons.flag,
+                                          color: Colors.red,
+                                          size: 32,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -239,7 +258,9 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                               context,
                               Icons.location_on,
                               'Origem',
-                              getFormattedAddress(widget.encomenda['originAddress']),
+                              getFormattedAddress(
+                                widget.encomenda['originAddress'],
+                              ),
                               Colors.blue,
                             ),
                             const SizedBox(height: 16),
@@ -249,7 +270,9 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                               context,
                               Icons.flag,
                               'Destino',
-                              getFormattedAddress(widget.encomenda['destinationAddress']),
+                              getFormattedAddress(
+                                widget.encomenda['destinationAddress'],
+                              ),
                               Colors.red,
                             ),
 
@@ -293,65 +316,75 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                     ),
                   ),
 
-                  // 5. Imagem do Produto (Expansível)
-                  if (widget.encomenda['imageUrl'] != null)
+                  // 5. Imagem do Produto (somente se entregue e imagem presente)
+                  if (widget.encomenda['imageUrl'] != null &&
+                      widget.encomenda['imageUrl'].toString().isNotEmpty &&
+                      widget.encomenda['status'] == 'DELIVERIED')
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: _buildExpandableImageSection(context),
                     ),
+
                   // Botão de Finalizar Entrega (visível apenas se status for ON_COURSE)
-if (widget.encomenda['status'] == 'ON_COURSE')
-  Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-    child: ElevatedButton.icon(
-      onPressed: () {
-        Navigator.of(context).push(
-          // Conferir se está funcionando aqui depois de criar a tela
-          MaterialPageRoute(
-        builder: (_) => FinalizarEntregaScreen(
-          //A encomenda está sendo mockada no momento
-            encomenda: Order(
-            id: 1,
-            description: "Entrega de livros",
-            
-            
-            status: OrderStatus.ON_COURSE,
-            
-            originAddress: Address(
-              street: "Rua das Flores",
-              number: "123",
-              neighborhood: "Centro",
-              city: "Cidade Exemplo",
-              latitude: -23.55052,
-              longitude: -46.633308, id: 1,
-            ),
-            destinationAddress: Address(
-              street: "Avenida Brasil",
-              number: "456",
-              neighborhood: "Jardim América",
-              city: "Cidade Exemplo",
-              latitude: -23.559616,
-              longitude: -46.658917, id: 1,
-            ),
-            imageUrl: "https://via.placeholder.com/300x200.png?text=Produto", customerId: 1,
-            ),
-          repository: OrderRepository(),
-        ),
-          ),
-        );
-      },
-      icon: const Icon(Icons.check_circle_outline),
-      label: const Text('Finalizar Entrega'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.green,
-        minimumSize: const Size.fromHeight(50),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-      ),
-    ),
-  ),
+                  if (widget.encomenda['status'] == 'ON_COURSE')
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            // Conferir se está funcionando aqui depois de criar a tela
+                            MaterialPageRoute(
+                              builder:
+                                  (_) => FinalizarEntregaScreen(
+                                    //A encomenda está sendo mockada no momento
+                                    encomenda: Order(
+                                      id: 1,
+                                      description: "Entrega de livros",
+
+                                      status: OrderStatus.ON_COURSE,
+
+                                      originAddress: Address(
+                                        street: "Rua das Flores",
+                                        number: "123",
+                                        neighborhood: "Centro",
+                                        city: "Cidade Exemplo",
+                                        latitude: -23.55052,
+                                        longitude: -46.633308,
+                                        id: 1,
+                                      ),
+                                      destinationAddress: Address(
+                                        street: "Avenida Brasil",
+                                        number: "456",
+                                        neighborhood: "Jardim América",
+                                        city: "Cidade Exemplo",
+                                        latitude: -23.559616,
+                                        longitude: -46.658917,
+                                        id: 1,
+                                      ),
+                                      imageUrl:
+                                          "https://via.placeholder.com/300x200.png?text=Produto",
+                                      customerId: 1,
+                                    ),
+                                    repository: OrderRepository(),
+                                  ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text('Finalizar Entrega'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          minimumSize: const Size.fromHeight(50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
 
                   const SizedBox(height: 24),
                 ],
@@ -364,13 +397,13 @@ if (widget.encomenda['status'] == 'ON_COURSE')
   }
 
   Widget _buildInfoRow(
-      BuildContext context,
-      IconData icon,
-      String label,
-      String value,
-      Color iconColor, {
-        bool isValueField = false,
-      }) {
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+    Color iconColor, {
+    bool isValueField = false,
+  }) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
 
@@ -399,12 +432,13 @@ if (widget.encomenda['status'] == 'ON_COURSE')
               const SizedBox(height: 4),
               Text(
                 value,
-                style: isValueField
-                    ? textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green.shade700,
-                )
-                    : textTheme.bodyMedium,
+                style:
+                    isValueField
+                        ? textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700,
+                        )
+                        : textTheme.bodyMedium,
               ),
             ],
           ),
@@ -418,13 +452,12 @@ if (widget.encomenda['status'] == 'ON_COURSE')
     final textTheme = theme.textTheme;
 
     final imageUrl = widget.encomenda['imageUrl'];
-    final hasValidImageUrl = imageUrl != null && imageUrl.toString().startsWith('http');
+    final hasValidImageUrl =
+        imageUrl != null && imageUrl.toString().startsWith('http');
 
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
           setState(() {
@@ -444,7 +477,11 @@ if (widget.encomenda['status'] == 'ON_COURSE')
                       color: Colors.purple.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.image, color: Colors.purple, size: 22),
+                    child: const Icon(
+                      Icons.image,
+                      color: Colors.purple,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -456,7 +493,9 @@ if (widget.encomenda['status'] == 'ON_COURSE')
                     ),
                   ),
                   Icon(
-                    _isImageExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    _isImageExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: theme.colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ],
@@ -468,24 +507,34 @@ if (widget.encomenda['status'] == 'ON_COURSE')
                 child: Container(
                   width: double.infinity,
                   constraints: const BoxConstraints(maxHeight: 350),
-                  padding: const EdgeInsets.only(bottom: 16.0, left: 16.0, right: 16.0),
+                  padding: const EdgeInsets.only(
+                    bottom: 16.0,
+                    left: 16.0,
+                    right: 16.0,
+                  ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
                       imageUrl,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Center(
+                      errorBuilder:
+                          (context, error, stackTrace) => Center(
                             child: Padding(
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
                                 children: [
-                                  Icon(Icons.broken_image, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 64),
+                                  Icon(
+                                    Icons.broken_image,
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.6),
+                                    size: 64,
+                                  ),
                                   const SizedBox(height: 16),
                                   Text(
                                     'Não foi possível carregar a imagem',
                                     style: textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                      color: theme.colorScheme.onSurface
+                                          .withOpacity(0.6),
                                     ),
                                   ),
                                 ],
@@ -500,10 +549,11 @@ if (widget.encomenda['status'] == 'ON_COURSE')
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 32.0),
                             child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                                  : null,
+                              value:
+                                  loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
                             ),
                           ),
                         );
@@ -518,7 +568,11 @@ if (widget.encomenda['status'] == 'ON_COURSE')
                 child: Center(
                   child: Column(
                     children: [
-                      Icon(Icons.image_not_supported, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 64),
+                      Icon(
+                        Icons.image_not_supported,
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        size: 64,
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         'Imagem não disponível ou formato inválido',
@@ -539,26 +593,31 @@ if (widget.encomenda['status'] == 'ON_COURSE')
   void _showFullScreenImage(BuildContext context, String imageUrl) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Visualização da imagem'),
-            backgroundColor: Colors.black,
-          ),
-          backgroundColor: Colors.black,
-          body: Center(
-            child: InteractiveViewer(
-              boundaryMargin: const EdgeInsets.all(20.0),
-              minScale: 0.5,
-              maxScale: 4.0,
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) =>
-                    Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurface, size: 100),
+        builder:
+            (context) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Visualização da imagem'),
+                backgroundColor: Colors.black,
+              ),
+              backgroundColor: Colors.black,
+              body: Center(
+                child: InteractiveViewer(
+                  boundaryMargin: const EdgeInsets.all(20.0),
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder:
+                        (context, error, stackTrace) => Icon(
+                          Icons.broken_image,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          size: 100,
+                        ),
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
       ),
     );
   }
