@@ -302,10 +302,13 @@ if (widget.encomenda['status'] == 'ON_COURSE')
     child: ElevatedButton.icon(
       onPressed: () {
         Navigator.of(context).push(
-          // Conferir se está funcionando aqui depois de criar a tela
-        //   MaterialPageRoute(
-        // // builder: (_) => FinalizarEntregaScreen(encomenda: widget.encomenda),
-        //   ),
+          // Substitua pelo widget correto quando a tela FinalizarEntregaScreen estiver pronta
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(title: const Text('Finalizar Entrega')),
+              body: const Center(child: Text('Tela de Finalizar Entrega (em desenvolvimento)')),
+            ),
+          ),
         );
       },
       icon: const Icon(Icons.check_circle_outline),
