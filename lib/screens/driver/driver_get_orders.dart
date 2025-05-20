@@ -10,7 +10,7 @@ class GetOrderScreen extends StatelessWidget {
   final List<Map<String, dynamic>> entregas = const [
     {
       'id': 1,
-      'status': 'DELIVERIED',
+      'status': 'ON_COURSE',
       'data': '2025-05-10',
       'description': 'Caixa com documentos',
       'imageUrl': 'https://picsum.photos/200/300',

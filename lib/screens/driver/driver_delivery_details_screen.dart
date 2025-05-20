@@ -31,7 +31,9 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
       case 'DELIVERIED':
         return 'Entregue';
       case 'PENDING':
-        return 'Em andamento';
+        return 'Pendente';
+      case 'ON_COURSE':
+        return 'Em Rota';
       default:
         return status;
     }
@@ -293,6 +295,31 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                       padding: const EdgeInsets.all(16.0),
                       child: _buildExpandableImageSection(context),
                     ),
+                  // Botão de Finalizar Entrega (visível apenas se status for ON_COURSE)
+if (widget.encomenda['status'] == 'ON_COURSE')
+  Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+    child: ElevatedButton.icon(
+      onPressed: () {
+        Navigator.of(context).push(
+          // Conferir se está funcionando aqui depois de criar a tela
+        //   MaterialPageRoute(
+        // // builder: (_) => FinalizarEntregaScreen(encomenda: widget.encomenda),
+        //   ),
+        );
+      },
+      icon: const Icon(Icons.check_circle_outline),
+      label: const Text('Finalizar Entrega'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.green,
+        minimumSize: const Size.fromHeight(50),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+    ),
+  ),
 
                   const SizedBox(height: 24),
                 ],
