@@ -45,5 +45,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Este aplicativo precisa de acesso à sua localização para mostrar no mapa.</string>
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>Este aplicativo precisa de acesso à sua localização para mostrar no mapa.</string>
 </dict>
 </plist>

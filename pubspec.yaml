@@ -43,6 +43,9 @@ dependencies:
   image_picker: ^1.1.2
   geolocator: ^14.0.0
   geocoding: ^3.0.0
+  flutter_compass: ^0.8.1
+
+
 
 dev_dependencies:
   flutter_test:

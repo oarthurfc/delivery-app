@@ -5,6 +5,8 @@ import 'package:delivery/screens/driver/driver_end_delivey.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart'; // Adicionado o pacote geolocator
+import 'package:flutter/services.dart';
 
 class DriverDeliveryDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> encomenda;
@@ -19,6 +21,110 @@ class DriverDeliveryDetailsScreen extends StatefulWidget {
 class _DriverDeliveryDetailsScreenState
     extends State<DriverDeliveryDetailsScreen> {
   bool _isImageExpanded = false;
+  LatLng? _currentPosition; // Para armazenar a posição atual
+  bool _isLoadingLocation = true; // Indicador de carregamento da posição
+  final MapController _mapController = MapController(); // Controlador do mapa
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation(); // Obter a localização atual ao iniciar a tela
+  }
+
+  // Função para solicitar e verificar permissões de localização
+  Future<bool> _handleLocationPermission() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Verifica se o serviço de localização está habilitado
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Os serviços de localização estão desativados. Por favor, ative-os.')));
+      return false;
+    }
+
+    // Verifica as permissões de localização
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permissões de localização negadas')));
+        return false;
+      }
+    }
+
+    // Se a permissão for permanentemente negada
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Permissões de localização permanentemente negadas. Por favor, habilite-as nas configurações.')));
+      return false;
+    }
+
+    return true;
+  }
+
+  // Função para obter a localização atual
+  Future<void> _getCurrentLocation() async {
+    setState(() {
+      _isLoadingLocation = true;
+    });
+
+    final hasPermission = await _handleLocationPermission();
+    if (!hasPermission) {
+      setState(() {
+        _isLoadingLocation = false;
+      });
+      return;
+    }
+
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+
+      setState(() {
+        _currentPosition = LatLng(position.latitude, position.longitude);
+        _isLoadingLocation = false;
+      });
+
+      // Centralize o mapa na posição atual, se disponível
+      if (_currentPosition != null) {
+        _mapController.move(_currentPosition!, 15.0);
+      }
+    } on PlatformException catch (e) {
+      debugPrint('Erro ao obter localização: ${e.message}');
+      setState(() {
+        _isLoadingLocation = false;
+      });
+    }
+  }
+
+  // Botão para centralizar o mapa na localização atual
+  Widget _buildLocationButton() {
+    return Positioned(
+      right: 16,
+      bottom: 16,
+      child: FloatingActionButton(
+        heroTag: 'locationButton',
+        backgroundColor: Colors.white,
+        mini: true,
+        onPressed: () {
+          if (_currentPosition != null) {
+            _mapController.move(_currentPosition!, 15.0);
+          } else {
+            _getCurrentLocation();
+          }
+        },
+        child: Icon(
+          Icons.my_location,
+          color: Theme.of(context).primaryColor,
+        ),
+      ),
+    );
+  }
 
   String getFormattedAddress(Map<String, dynamic> address) {
     return '${address['street']}, ${address['number']} - ${address['neighborhood']}, ${address['city']}';
@@ -185,44 +291,83 @@ class _DriverDeliveryDetailsScreenState
                             child: SizedBox(
                               height: 220,
                               width: double.infinity,
-                              child: FlutterMap(
-                                options: MapOptions(
-                                  center: origem,
-                                  zoom: 13.0,
-                                  minZoom: 10.0,
-                                  maxZoom: 18.0,
-                                  interactiveFlags: InteractiveFlag.all,
-                                ),
+                              child: Stack(
                                 children: [
-                                  TileLayer(
-                                    urlTemplate:
+                                  FlutterMap(
+                                    mapController: _mapController,
+                                    options: MapOptions(
+                                      center: _currentPosition ?? origem,
+                                      zoom: 13.0,
+                                      minZoom: 10.0,
+                                      maxZoom: 18.0,
+                                      interactiveFlags: InteractiveFlag.all,
+                                    ),
+                                    children: [
+                                      TileLayer(
+                                        urlTemplate:
                                         'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    subdomains: ['a', 'b', 'c'],
-                                  ),
-                                  MarkerLayer(
-                                    markers: [
-                                      Marker(
-                                        point: origem,
-                                        width: 60,
-                                        height: 60,
-                                        child: const Icon(
-                                          Icons.location_on,
-                                          color: Colors.blue,
-                                          size: 32,
-                                        ),
+                                        subdomains: ['a', 'b', 'c'],
                                       ),
-                                      Marker(
-                                        point: destino,
-                                        width: 60,
-                                        height: 60,
-                                        child: const Icon(
-                                          Icons.flag,
-                                          color: Colors.red,
-                                          size: 32,
-                                        ),
+                                      MarkerLayer(
+                                        markers: [
+                                          Marker(
+                                            point: origem,
+                                            width: 60,
+                                            height: 60,
+                                            child: const Icon(
+                                              Icons.location_on,
+                                              color: Colors.blue,
+                                              size: 32,
+                                            ),
+                                          ),
+                                          Marker(
+                                            point: destino,
+                                            width: 60,
+                                            height: 60,
+                                            child: const Icon(
+                                              Icons.flag,
+                                              color: Colors.red,
+                                              size: 32,
+                                            ),
+                                          ),
+                                          // Marcador da posição atual
+                                          if (_currentPosition != null)
+                                            Marker(
+                                              point: _currentPosition!,
+                                              width: 60,
+                                              height: 60,
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green.withOpacity(0.7),
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: Colors.white,
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.person_pin_circle,
+                                                  color: Colors.white,
+                                                  size: 30,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                     ],
                                   ),
+                                  // Indicador de carregamento
+                                  if (_isLoadingLocation)
+                                    Positioned.fill(
+                                      child: Container(
+                                        color: Colors.black12,
+                                        child: const Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                      ),
+                                    ),
+                                  // Botão de localização
+                                  _buildLocationButton(),
                                 ],
                               ),
                             ),
@@ -336,37 +481,37 @@ class _DriverDeliveryDetailsScreenState
                             MaterialPageRoute(
                               builder:
                                   (_) => FinalizarEntregaScreen(
-                                    //A encomenda está sendo mockada no momento
-                                    encomenda: Order(
-                                      id: 1,
-                                      description: "Entrega de livros",
+                                //A encomenda está sendo mockada no momento
+                                encomenda: Order(
+                                  id: 1,
+                                  description: "Entrega de livros",
 
-                                      status: OrderStatus.ON_COURSE,
+                                  status: OrderStatus.ON_COURSE,
 
-                                      originAddress: Address(
-                                        street: "Rua das Flores",
-                                        number: "123",
-                                        neighborhood: "Centro",
-                                        city: "Cidade Exemplo",
-                                        latitude: -23.55052,
-                                        longitude: -46.633308,
-                                        id: 1,
-                                      ),
-                                      destinationAddress: Address(
-                                        street: "Avenida Brasil",
-                                        number: "456",
-                                        neighborhood: "Jardim América",
-                                        city: "Cidade Exemplo",
-                                        latitude: -23.559616,
-                                        longitude: -46.658917,
-                                        id: 1,
-                                      ),
-                                      imageUrl:
-                                          "https://via.placeholder.com/300x200.png?text=Produto",
-                                      customerId: 1,
-                                    ),
-                                    repository: OrderRepository(),
+                                  originAddress: Address(
+                                    street: "Rua das Flores",
+                                    number: "123",
+                                    neighborhood: "Centro",
+                                    city: "Cidade Exemplo",
+                                    latitude: -23.55052,
+                                    longitude: -46.633308,
+                                    id: 1,
                                   ),
+                                  destinationAddress: Address(
+                                    street: "Avenida Brasil",
+                                    number: "456",
+                                    neighborhood: "Jardim América",
+                                    city: "Cidade Exemplo",
+                                    latitude: -23.559616,
+                                    longitude: -46.658917,
+                                    id: 1,
+                                  ),
+                                  imageUrl:
+                                  "https://via.placeholder.com/300x200.png?text=Produto",
+                                  customerId: 1,
+                                ),
+                                repository: OrderRepository(),
+                              ),
                             ),
                           );
                         },
@@ -397,13 +542,13 @@ class _DriverDeliveryDetailsScreenState
   }
 
   Widget _buildInfoRow(
-    BuildContext context,
-    IconData icon,
-    String label,
-    String value,
-    Color iconColor, {
-    bool isValueField = false,
-  }) {
+      BuildContext context,
+      IconData icon,
+      String label,
+      String value,
+      Color iconColor, {
+        bool isValueField = false,
+      }) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
 
@@ -433,12 +578,12 @@ class _DriverDeliveryDetailsScreenState
               Text(
                 value,
                 style:
-                    isValueField
-                        ? textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade700,
-                        )
-                        : textTheme.bodyMedium,
+                isValueField
+                    ? textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green.shade700,
+                )
+                    : textTheme.bodyMedium,
               ),
             ],
           ),
@@ -519,28 +664,28 @@ class _DriverDeliveryDetailsScreenState
                       fit: BoxFit.contain,
                       errorBuilder:
                           (context, error, stackTrace) => Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.broken_image,
-                                    color: theme.colorScheme.onSurface
-                                        .withOpacity(0.6),
-                                    size: 64,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'Não foi possível carregar a imagem',
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurface
-                                          .withOpacity(0.6),
-                                    ),
-                                  ),
-                                ],
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.broken_image,
+                                color: theme.colorScheme.onSurface
+                                    .withOpacity(0.6),
+                                size: 64,
                               ),
-                            ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Não foi possível carregar a imagem',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.6),
+                                ),
+                              ),
+                            ],
                           ),
+                        ),
+                      ),
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) {
                           return child;
@@ -550,10 +695,10 @@ class _DriverDeliveryDetailsScreenState
                             padding: const EdgeInsets.symmetric(vertical: 32.0),
                             child: CircularProgressIndicator(
                               value:
-                                  loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                      : null,
+                              loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                                  : null,
                             ),
                           ),
                         );
@@ -595,29 +740,29 @@ class _DriverDeliveryDetailsScreenState
       MaterialPageRoute(
         builder:
             (context) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Visualização da imagem'),
-                backgroundColor: Colors.black,
-              ),
-              backgroundColor: Colors.black,
-              body: Center(
-                child: InteractiveViewer(
-                  boundaryMargin: const EdgeInsets.all(20.0),
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.contain,
-                    errorBuilder:
-                        (context, error, stackTrace) => Icon(
-                          Icons.broken_image,
-                          color: Theme.of(context).colorScheme.onSurface,
-                          size: 100,
-                        ),
-                  ),
+          appBar: AppBar(
+            title: const Text('Visualização da imagem'),
+            backgroundColor: Colors.black,
+          ),
+          backgroundColor: Colors.black,
+          body: Center(
+            child: InteractiveViewer(
+              boundaryMargin: const EdgeInsets.all(20.0),
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder:
+                    (context, error, stackTrace) => Icon(
+                  Icons.broken_image,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  size: 100,
                 ),
               ),
             ),
+          ),
+        ),
       ),
     );
   }
