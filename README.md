@@ -48,13 +48,13 @@ delivery/
 
 ## 🏗️ Fases do Desenvolvimento
 
-### Fase 1: Desenvolvimento Mobile
+### Fase 1: Desenvolvimento Mobile - [Docs](docs/especificacoes_entregas/entrega_01.md)
 A primeira fase focou na criação do aplicativo móvel usando Flutter, implementando interfaces distintas para clientes e motoristas. O app inclui funcionalidades como rastreamento em tempo real, histórico de pedidos, captura de fotos com geolocalização para comprovação de entrega, e armazenamento offline com SQLite. Também foram implementadas notificações push, sistema de preferências com Shared Preferences, e tratamento robusto de erros para cenários como falta de conectividade e permissões negadas.
 
-### Fase 2: Arquitetura de Microsserviços
+### Fase 2: Arquitetura de Microsserviços - [Docs](docs/especificacoes_entregas/entrega_02.md)
 Na segunda fase, foi desenvolvido o backend utilizando arquitetura de microsserviços, criando serviços independentes para autenticação (com JWT), gerenciamento de pedidos (CRUD completo), rastreamento em tempo real, e sistema de notificações. A comunicação entre serviços foi implementada tanto de forma síncrona (REST) quanto assíncrona (mensageria), com um API Gateway centralizando o roteamento e autenticação. Esta arquitetura garante escalabilidade, manutenibilidade e isolamento de falhas.
 
-### Fase 3: Infraestrutura Serverless
+### Fase 3: Infraestrutura Serverless - [Docs](docs/especificacoes_entregas/entrega_03.md)
 A fase final migrou a arquitetura para uma abordagem serverless na nuvem, substituindo os microsserviços tradicionais por funções serverless (AWS Lambda, Google Cloud Functions, etc.) e serviços gerenciados. Esta implementação inclui API Gateway serverless, banco de dados NoSQL escalável, sistema de mensageria em nuvem, cache distribuído, e armazenamento de arquivos. O resultado é uma infraestrutura que escala automaticamente, com menor custo operacional e alta disponibilidade garantida pelo provedor de nuvem.
 
 ## 🚀 Como Executar o Projeto
