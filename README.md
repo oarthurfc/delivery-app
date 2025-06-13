@@ -4,7 +4,42 @@ Um sistema completo de entregas desenvolvido como projeto acadêmico na PUC Mina
 
 ## 🎥 Demonstração
 
-[![Demonstração do Sistema](https://img.shields.io/badge/▶️-Assistir%20Demo-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/shorts/lNh5pR27yVE)
+<p align="center">
+  <table>
+    <tr>
+      <!-- Card 1 -->
+      <td align="center" style="padding: 10px;">
+        <a href="https://www.youtube.com/shorts/lNh5pR27yVE" target="_blank" style="text-decoration: none;">
+          <img src="https://img.youtube.com/vi/lNh5pR27yVE/hqdefault.jpg" width="300" alt="Vídeo 1" style="border-radius: 10px; border: 1px solid #ddd;">
+          <br>
+          <img src="https://img.shields.io/badge/YouTube-Assistir-red?style=flat-square&logo=youtube" alt="Assistir no YouTube">
+          <br>
+          <strong style="color: #333; font-family: Arial, sans-serif;">Desenvolvimento Mobile</strong>
+        </a>
+      </td>
+      <td align="center" style="padding: 10px;">
+        <a href="https://www.youtube.com/shorts/lNh5pR27yVE" target="_blank" style="text-decoration: none;">
+          <img src="https://img.youtube.com/vi/lNh5pR27yVE/hqdefault.jpg" width="300" alt="Vídeo 1" style="border-radius: 10px; border: 1px solid #ddd;">
+          <br>
+          <img src="https://img.shields.io/badge/YouTube-Assistir-red?style=flat-square&logo=youtube" alt="Assistir no YouTube">
+          <br>
+          <strong style="color: #333; font-family: Arial, sans-serif;">Arquitetura de Microsserviços</strong>
+        </a>
+      </td>
+      <td align="center" style="padding: 10px;">
+        <a href="https://www.youtube.com/shorts/lNh5pR27yVE" target="_blank" style="text-decoration: none;">
+          <img src="https://img.youtube.com/vi/lNh5pR27yVE/hqdefault.jpg" width="300" alt="Vídeo 1" style="border-radius: 10px; border: 1px solid #ddd;">
+          <br>
+          <img src="https://img.shields.io/badge/YouTube-Assistir-red?style=flat-square&logo=youtube" alt="Assistir no YouTube">
+          <br>
+          <strong style="color: #333; font-family: Arial, sans-serif;">Infraestrutura Serverless</strong>
+        </a>
+      </td>
+      
+
+  </table>
+</p>
+
 
 ## 🚀 Visão Geral
 
