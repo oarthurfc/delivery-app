@@ -1,4 +1,4 @@
-# Detalhamento dos Requisitos do Trabalho sobre Microsserviços (30 pontos)
+# Detalhamento dos Requisitos do Trabalho sobre Microsserviços 
 
 ## Índice
 
