@@ -1,20 +1,13 @@
-FROM eclipse-temurin:21-jdk-alpine as build
+FROM node:20-alpine
 
-WORKDIR /workspace/app
+WORKDIR /usr/src/app
 
-COPY mvnw .
-COPY .mvn .mvn
-COPY pom.xml .
-COPY src src
+COPY package*.json ./
 
-RUN ./mvnw install -DskipTests
+RUN npm install
 
-FROM eclipse-temurin:21-jre-alpine
-
-VOLUME /tmp
-
-COPY --from=build /workspace/app/target/*.jar app.jar
+COPY . .
 
 EXPOSE 8081
 
-ENTRYPOINT ["java","-jar","/app.jar"]
+CMD ["npm", "start"]
