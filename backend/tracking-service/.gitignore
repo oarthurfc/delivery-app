@@ -1,0 +1,21 @@
+# Java
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDE
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+
+# Spring Boot
+application-local.properties
+application-local.yml
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

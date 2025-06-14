@@ -57,28 +57,28 @@ O projeto Delivery é uma solução completa para gerenciamento e rastreamento d
 
 ```
 delivery/
-├── mobile/                 # Aplicativo móvel Flutter
-│   ├── lib/               # Código fonte Dart
-│   ├── android/           # Configurações Android
-│   ├── ios/              # Configurações iOS
-│   └── pubspec.yaml      # Dependências Flutter
+├── mobile/                   # Aplicativo móvel Flutter
+│   ├── lib/                  # Código fonte Dart
+│   ├── android/              # Configurações Android
+│   ├── ios/                  # Configurações iOS
+│   └── pubspec.yaml          # Dependências Flutter
 │
-├── backend/               # Microsserviços e API Gateway
-│   ├── api-gateway/      # Gateway de APIs
-│   ├── auth-service/     # Serviço de autenticação
-│   ├── order-service/    # Serviço de pedidos
-│   ├── tracking-service/ # Serviço de rastreamento
-│   └── notification-service/ # Serviço de notificações
+├── backend/                  # Microsserviços e API Gateway
+│   ├── docker-compose.yml    # Orquestração dos serviços
+│   ├── api-gateway/          # Gateway de APIs (Spring Cloud Gateway)
+│   ├── auth-service/         # Serviço de autenticação (Node.js)
+│   ├── order-service/        # Serviço de pedidos (Java 21)
+│   └── tracking-service/     # Serviço de rastreamento (Java 21)
 │
-├── cloud/                 # Infraestrutura serverless
-│   ├── functions/        # Funções serverless
-│   ├── infrastructure/   # Configurações de infraestrutura
-│   └── ci-cd/           # Pipelines de deploy
+├── cloud/                    # Infraestrutura serverless
+│   ├── functions/            # Funções serverless
+│   ├── infrastructure/       # Configurações de infraestrutura
+│   └── ci-cd/                # Pipelines de deploy
 │
-└── docs/                  # Documentação do projeto
-    ├── api/              # Documentação das APIs
-    ├── architecture/     # Diagramas de arquitetura
-    └── deployment/       # Guias de deployment
+└── docs/                     # Documentação do projeto
+    ├── api/                  # Documentação das APIs
+    ├── architecture/         # Diagramas de arquitetura
+    └── deployment/           # Guias de deployment
 ```
 
 ## 🏗️ Fases do Desenvolvimento
@@ -99,6 +99,9 @@ A fase final migrou a arquitetura para uma abordagem serverless na nuvem, substi
 - Dart SDK
 - Android Studio / Xcode (para desenvolvimento mobile)
 - Docker e Docker Compose (para microsserviços)
+- Node.js 20+ (para serviço de autenticação)
+- Java 21 JDK (para serviços Java)
+- Maven (incluído nos wrappers dos projetos)
 - Conta em provedor de nuvem (AWS/Google Cloud/Azure) para fase serverless
 
 ### Executando o Mobile
@@ -109,7 +112,70 @@ flutter run
 ```
 
 ### Executando os Microsserviços
-COLOCAR INSTRUÇÃO DO DOCKER
+
+#### Método Rápido (Recomendado)
+
+1. Navegue até a pasta backend:
+```bash
+cd backend/
+```
+
+2. Execute o script de setup:
+```bash
+./setup.sh
+```
+O script irá:
+- Criar o arquivo .env a partir do .env.example (se não existir)
+- Verificar se o Docker está rodando
+- Construir e iniciar todos os containers
+- Mostrar os endpoints disponíveis
+
+#### Método Manual
+
+1. Navegue até a pasta backend:
+```bash
+cd backend/
+```
+
+2. Configure as variáveis de ambiente:
+```bash
+cp .env.example .env
+```
+Edite o arquivo `.env` com suas configurações desejadas.
+
+3. Execute o Docker Compose:
+```bash
+docker-compose up -d
+```
+
+Isso iniciará todos os serviços necessários:
+- PostgreSQL (porta 5432)
+- MongoDB (porta 27017)
+- RabbitMQ (porta 5672 e 15672 para gerenciamento)
+- Serviço de Autenticação (porta 3000)
+- Serviço de Pedidos (porta 8080)
+- Serviço de Rastreamento (porta 8081)
+- API Gateway (porta 8000)
+
+3. Verificar status dos serviços:
+```bash
+docker-compose ps
+```
+
+4. Visualizar logs:
+```bash
+docker-compose logs -f
+```
+
+5. Parar todos os serviços:
+```bash
+docker-compose down
+```
+
+Você pode acessar:
+- RabbitMQ Management: http://localhost:15672
+- API Gateway: http://localhost:8000
+- Swagger/OpenAPI de cada serviço (quando implementado)
 
 ### Deploy Serverless
 
@@ -121,9 +187,9 @@ Para informações detalhadas sobre arquitetura, APIs e deployment, consulte a p
 ## 🛠️ Tecnologias Utilizadas
 
 - **Mobile:** Flutter, Dart, SQLite, GPS, Camera
-- **Backend:** Spring Boot, Node.js, PostgreSQL, RabbitMQ
-- **Cloud:** ???
-- **DevOps:** Docker
+- **Backend:** Spring Boot, Node.js, PostgreSQL, MongoDB, RabbitMQ
+- **Cloud:** AWS/Google Cloud/Azure (em implementação)
+- **DevOps:** Docker, Docker Compose, Maven
 
 ---
 
