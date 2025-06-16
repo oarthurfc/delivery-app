@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: tracking_postgres
+    environment:
+      POSTGRES_DB: tracking_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - tracking_network
+
+  # Serviço de Rastreamento
+  tracking_service:
+    build: .
+    container_name: tracking_service
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=tracking_service
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - JWT_SECRET=sua_chave_secreta_super_segura_aqui
+    ports:
+      - "3003:3003"
+    depends_on:
+      - postgres
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - tracking_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  tracking_network:
+    driver: bridge

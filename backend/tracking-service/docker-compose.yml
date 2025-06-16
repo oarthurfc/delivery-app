@@ -1,0 +1,57 @@
+services:
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: tracking_postgres
+    environment:
+      POSTGRES_DB: tracking_service
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5433:5432"  # Mudei para 5433 para evitar conflito com PostgreSQL local
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - tracking_network
+    restart: unless-stopped
+
+  # Serviço de Rastreamento
+  tracking_service:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: tracking_service
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=tracking_service
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - JWT_SECRET=sua_chave_secreta_super_segura_aqui
+      - API_URL=http://localhost:3003
+    ports:
+      - "3003:3003"
+    depends_on:
+      - postgres
+    networks:
+      - tracking_network
+    restart: unless-stopped
+    # Script para aguardar o banco estar pronto
+    command: >
+      sh -c "
+        echo 'Aguardando PostgreSQL estar pronto...' &&
+        while ! nc -z postgres 5432; do
+          sleep 1
+        done &&
+        echo 'PostgreSQL está pronto!' &&
+        npm start
+      "
+
+volumes:
+  postgres_data:
+
+networks:
+  tracking_network:
+    driver: bridge
