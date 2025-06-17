@@ -98,7 +98,7 @@ A fase final migrou a arquitetura para uma abordagem serverless na nuvem, substi
 - Flutter SDK (versão 3.0+)
 - Dart SDK
 - Android Studio / Xcode (para desenvolvimento mobile)
-- Docker e Docker Compose (para microsserviços)
+- Docker (para microsserviços)
 - Node.js 20+ (para serviço de autenticação)
 - Java 21 JDK (para serviços Java)
 - Maven (incluído nos wrappers dos projetos)
@@ -113,25 +113,6 @@ flutter run
 
 ### Executando os Microsserviços
 
-#### Método Rápido (Recomendado)
-
-1. Navegue até a pasta backend:
-```bash
-cd backend/
-```
-
-2. Execute o script de setup:
-```bash
-./setup.sh
-```
-O script irá:
-- Criar o arquivo .env a partir do .env.example (se não existir)
-- Verificar se o Docker está rodando
-- Construir e iniciar todos os containers
-- Mostrar os endpoints disponíveis
-
-#### Método Manual
-
 1. Navegue até a pasta backend:
 ```bash
 cd backend/
@@ -141,41 +122,53 @@ cd backend/
 ```bash
 cp .env.example .env
 ```
-Edite o arquivo `.env` com suas configurações desejadas.
 
-3. Execute o Docker Compose:
+3. Construa e inicie os serviços com Docker Compose:
 ```bash
-docker-compose up -d
+# Na primeira execução ou quando houver mudanças no código
+docker-compose build  # Constrói ou reconstrói as imagens
+docker-compose up -d  # Inicia os containers
+
+# OU use um único comando
+docker-compose up -d --build  # Constrói e inicia em um único comando
 ```
 
-Isso iniciará todos os serviços necessários:
-- PostgreSQL (porta 5432)
-- MongoDB (porta 27017)
-- RabbitMQ (porta 5672 e 15672 para gerenciamento)
-- Serviço de Autenticação (porta 3000)
-- Serviço de Pedidos (porta 8080)
-- Serviço de Rastreamento (porta 8081)
-- API Gateway (porta 8000)
+O sistema iniciará os seguintes serviços:
+- API Gateway (porta 8000): Ponto de entrada único para todas as APIs
+- Serviço de Autenticação (Node.js): Gerencia autenticação e JWT
+- Serviço de Pedidos (Java): Gerenciamento de pedidos
+- Serviço de Rastreamento (Java): Rastreamento em tempo real
+- MongoDB: Banco de dados para autenticação
+- PostgreSQL: Banco de dados para pedidos
+- RabbitMQ: Sistema de mensageria
 
-3. Verificar status dos serviços:
+Após a inicialização, você pode acessar:
+- API Gateway: http://localhost:8000 (todas as requisições devem passar por aqui)
+- RabbitMQ Management: http://localhost:15672 (usuário/senha do .env)
+
+Comandos úteis:
 ```bash
+# Construir todas as imagens
+docker-compose build
+
+# Construir uma imagem específica
+docker-compose build auth-service
+
+# Verificar status dos containers
 docker-compose ps
-```
 
-4. Visualizar logs:
-```bash
+# Ver logs em tempo real
 docker-compose logs -f
-```
 
-5. Parar todos os serviços:
-```bash
+# Ver logs de um serviço específico
+docker-compose logs -f auth-service
+
+# Parar todos os serviços
 docker-compose down
-```
 
-Você pode acessar:
-- RabbitMQ Management: http://localhost:15672
-- API Gateway: http://localhost:8000
-- Swagger/OpenAPI de cada serviço (quando implementado)
+# Parar e remover volumes (útil para "limpar" bancos de dados)
+docker-compose down -v
+```
 
 ### Deploy Serverless
 
