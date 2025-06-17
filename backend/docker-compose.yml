@@ -119,14 +119,11 @@ services:
       dockerfile: Dockerfile
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - AUTH_SERVICE_URL=http://auth-service:${AUTH_SERVICE_PORT}
-      - ORDER_SERVICE_URL=http://order-service:${ORDER_SERVICE_PORT}
-      - TRACKING_SERVICE_URL=http://tracking-service:${TRACKING_SERVICE_PORT}
-      - SPRING_CLOUD_GATEWAY_ROUTES[0]_URI=${AUTH_SERVICE_URL}
+      - SPRING_CLOUD_GATEWAY_ROUTES[0]_URI=http://auth-service:${AUTH_SERVICE_PORT}
       - SPRING_CLOUD_GATEWAY_ROUTES[0]_PREDICATES[0]=Path=/api/auth/**
-      - SPRING_CLOUD_GATEWAY_ROUTES[1]_URI=${ORDER_SERVICE_URL}
+      - SPRING_CLOUD_GATEWAY_ROUTES[1]_URI=http://order-service:${ORDER_SERVICE_PORT}
       - SPRING_CLOUD_GATEWAY_ROUTES[1]_PREDICATES[0]=Path=/api/orders/**
-      - SPRING_CLOUD_GATEWAY_ROUTES[2]_URI=${TRACKING_SERVICE_URL}
+      - SPRING_CLOUD_GATEWAY_ROUTES[2]_URI=http://tracking-service:${TRACKING_SERVICE_PORT}
       - SPRING_CLOUD_GATEWAY_ROUTES[2]_PREDICATES[0]=Path=/api/tracking/**
     networks:
       - frontend
