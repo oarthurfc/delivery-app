@@ -1,5 +1,13 @@
 version: '3.8'
 
+networks:
+  frontend:
+    # Rede para exposição externa (API Gateway)
+  database:
+    internal: true  
+  message_bus:
+    internal: true  
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -9,20 +17,25 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT}:5432"
+    networks:
+      - database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
 
   mongodb:
     image: mongo:7
     environment:
+      MONGO_INITDB_DATABASE: ${MONGO_DB}
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
-      MONGO_INITDB_DATABASE: auth_db
     volumes:
       - mongodb_data:/data/db
       - ./mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
-    ports:
-      - "${MONGO_PORT}:27017"
+    networks:
+      - database
     healthcheck:
       test: mongosh --quiet --username ${MONGO_USER} --password ${MONGO_PASSWORD} --eval 'db.runCommand("ping").ok' mongodb://localhost:27017/auth_db
       interval: 20s
@@ -35,9 +48,8 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    ports:
-      - "${RABBITMQ_PORT}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
+    networks:
+      - message_bus
 
   auth-service:
     build: 
@@ -49,7 +61,10 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=24h
       - MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/auth_db?authSource=admin
-      - CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+      - CORS_ORIGINS=http://localhost:${AUTH_SERVICE_PORT},http://localhost:${API_GATEWAY_PORT}
+    networks:
+      - database
+      - frontend
     depends_on:
       mongodb:
         condition: service_healthy
@@ -59,8 +74,6 @@ services:
       timeout: 30s
       retries: 3
       start_period: 10s
-    ports:
-      - "${AUTH_SERVICE_PORT}:3000"
 
   order-service:
     build:
@@ -74,11 +87,13 @@ services:
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
       - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+    networks:
+      - database
+      - message_bus
+      - frontend
     depends_on:
       - postgres
       - rabbitmq
-    ports:
-      - "${ORDER_SERVICE_PORT}:8080"
 
   tracking-service:
     build:
@@ -90,11 +105,13 @@ services:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+    networks:
+      - database
+      - message_bus
+      - frontend
     depends_on:
       - mongodb
       - rabbitmq
-    ports:
-      - "${TRACKING_SERVICE_PORT}:8081"
 
   api-gateway:
     build:
@@ -105,12 +122,20 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:${AUTH_SERVICE_PORT}
       - ORDER_SERVICE_URL=http://order-service:${ORDER_SERVICE_PORT}
       - TRACKING_SERVICE_URL=http://tracking-service:${TRACKING_SERVICE_PORT}
+      - SPRING_CLOUD_GATEWAY_ROUTES[0]_URI=${AUTH_SERVICE_URL}
+      - SPRING_CLOUD_GATEWAY_ROUTES[0]_PREDICATES[0]=Path=/api/auth/**
+      - SPRING_CLOUD_GATEWAY_ROUTES[1]_URI=${ORDER_SERVICE_URL}
+      - SPRING_CLOUD_GATEWAY_ROUTES[1]_PREDICATES[0]=Path=/api/orders/**
+      - SPRING_CLOUD_GATEWAY_ROUTES[2]_URI=${TRACKING_SERVICE_URL}
+      - SPRING_CLOUD_GATEWAY_ROUTES[2]_PREDICATES[0]=Path=/api/tracking/**
+    networks:
+      - frontend
+    ports:
+      - "${API_GATEWAY_PORT}:8000"
     depends_on:
       - auth-service
       - order-service
       - tracking-service
-    ports:
-      - "${GATEWAY_PORT}:8000"
 
 volumes:
   postgres_data:
