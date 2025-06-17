@@ -30,15 +30,15 @@ services:
     command: ['mongod', '--bind_ip_all']
     environment:
       MONGO_INITDB_DATABASE: ${MONGO_DB}
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
     volumes:
       - mongodb_data:/data/db
       - ./mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     networks:
       - database
     healthcheck:
-      test: mongosh --quiet --eval 'db.runCommand("ping").ok' mongodb://${MONGO_USER}:${MONGO_PASSWORD}@127.0.0.1:27017/${MONGO_DB}?authSource=admin
+      test: mongosh --quiet --eval 'db.runCommand("ping").ok' mongodb://${MONGO_USER}:${MONGO_PASSWORD}@127.0.0.1:27017/${MONGO_DB}?authSource=auth_db
       interval: 20s
       timeout: 10s
       retries: 3
