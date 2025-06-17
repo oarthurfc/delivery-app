@@ -2,10 +2,10 @@ FROM eclipse-temurin:21-jdk-alpine as build
 
 WORKDIR /workspace/app
 
-COPY gateway/mvnw .
-COPY gateway/.mvn .mvn
-COPY gateway/pom.xml .
-COPY gateway/src src
+COPY mvnw .
+COPY .mvn .mvn
+COPY pom.xml .
+COPY src src
 
 RUN ./mvnw install -DskipTests
 
