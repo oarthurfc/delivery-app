@@ -27,6 +27,7 @@ services:
 
   mongodb:
     image: mongo:7
+    command: ['mongod', '--bind_ip_all']
     environment:
       MONGO_INITDB_DATABASE: ${MONGO_DB}
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
@@ -37,7 +38,7 @@ services:
     networks:
       - database
     healthcheck:
-      test: mongosh --quiet --username ${MONGO_USER} --password ${MONGO_PASSWORD} --eval 'db.runCommand("ping").ok' mongodb://localhost:27017/auth_db
+      test: mongosh --quiet --eval 'db.runCommand("ping").ok' mongodb://${MONGO_USER}:${MONGO_PASSWORD}@127.0.0.1:27017/${MONGO_DB}?authSource=admin
       interval: 20s
       timeout: 10s
       retries: 3
@@ -50,6 +51,12 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     networks:
       - message_bus
+    healthcheck:
+      test: rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
 
   auth-service:
     build: 
@@ -60,7 +67,7 @@ services:
       - PORT=${AUTH_SERVICE_PORT}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=24h
-      - MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/auth_db?authSource=admin
+      - MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DB}?authSource=admin
       - CORS_ORIGINS=http://localhost:${AUTH_SERVICE_PORT},http://localhost:${API_GATEWAY_PORT}
     networks:
       - database
@@ -92,8 +99,10 @@ services:
       - message_bus
       - frontend
     depends_on:
-      - postgres
-      - rabbitmq
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
 
   tracking-service:
     build:
@@ -101,7 +110,7 @@ services:
       dockerfile: Dockerfile
     environment:
       - NODE_ENV=development
-      - MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/tracking_db
+      - MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/tracking_db?authSource=admin
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
@@ -110,8 +119,10 @@ services:
       - message_bus
       - frontend
     depends_on:
-      - mongodb
-      - rabbitmq
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
 
   api-gateway:
     build:

@@ -1,11 +1,16 @@
-db.auth('${MONGO_INITDB_ROOT_USERNAME}', '${MONGO_INITDB_ROOT_PASSWORD}')
+// Este script será executado durante a inicialização do container MongoDB
+const dbName = process.env.MONGO_INITDB_DATABASE;
 
-db = db.getSiblingDB('auth_db')
+db = db.getSiblingDB(dbName)
 
+// Criar usuário com permissões apropriadas
 db.createUser({
-  user: '${MONGO_INITDB_ROOT_USERNAME}',
-  pwd: '${MONGO_INITDB_ROOT_PASSWORD}',
+  user: process.env.MONGO_INITDB_ROOT_USERNAME,
+  pwd: process.env.MONGO_INITDB_ROOT_PASSWORD,
   roles: [
-    { role: 'readWrite', db: 'auth_db' }
+    { role: 'dbOwner', db: dbName }
   ]
 })
+
+// Criar um índice único para o campo email na coleção users
+db.users.createIndex({ "email": 1 }, { unique: true })
