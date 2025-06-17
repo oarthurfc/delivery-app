@@ -25,6 +25,27 @@ services:
       timeout: 10s
       retries: 3
 
+  # PostgreSQL específico para tracking (mantendo separado para isolamento)
+  tracking_postgres:
+    image: postgres:15-alpine
+    container_name: tracking_postgres
+    environment:
+      POSTGRES_DB: tracking_service
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5433:5432"  # Porta específica para evitar conflitos
+    volumes:
+      - tracking_postgres_data:/var/lib/postgresql/data
+    networks:
+      - database
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d tracking_service"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+
   mongodb:
     image: mongo:7
     command: mongod --auth --bind_ip_all
@@ -52,6 +73,8 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     networks:
       - message_bus
+    ports:
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"  # Management UI
     healthcheck:
       test: rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms
       interval: 30s
@@ -109,28 +132,48 @@ services:
     build:
       context: ./tracking-service
       dockerfile: Dockerfile
+    container_name: tracking_service
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=${TRACKING_SERVICE_PORT}
-      - MONGODB_URI=mongodb://tracking_user:${MONGO_PASSWORD}@mongodb:27017/tracking_db?authSource=tracking_db
+      - DB_HOST=tracking_postgres
+      - DB_PORT=5432
+      - DB_NAME=tracking_service
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - JWT_SECRET=${JWT_SECRET}
+      - API_URL=http://localhost:${TRACKING_SERVICE_PORT}
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+    ports:
+      - "${TRACKING_SERVICE_PORT}:${TRACKING_SERVICE_PORT}"
     networks:
       - database
       - message_bus
       - frontend
     depends_on:
-      mongodb:
+      tracking_postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${TRACKING_SERVICE_PORT}/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${TRACKING_SERVICE_PORT}/api/tracking/health"]
       interval: 20s
       timeout: 10s
       retries: 3
       start_period: 15s
+    # Script para aguardar o banco estar pronto
+    command: >
+      sh -c "
+        echo 'Aguardando PostgreSQL estar pronto...' &&
+        while ! nc -z tracking_postgres 5432; do
+          sleep 1
+        done &&
+        echo 'PostgreSQL está pronto!' &&
+        npm start
+      "
 
   api-gateway:
     build:
@@ -152,4 +195,5 @@ services:
 
 volumes:
   postgres_data:
+  tracking_postgres_data:  # Volume específico para tracking
   mongodb_data:

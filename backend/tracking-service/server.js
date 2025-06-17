@@ -1,9 +1,8 @@
-// server.js
 require('dotenv').config();
 const app = require('./src/app');
 const { initDatabase } = require('./src/config/database');
 
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT || 8081;
 
 const startServer = async () => {
   try {
@@ -13,6 +12,7 @@ const startServer = async () => {
     // Iniciar servidor
     app.listen(PORT, () => {
       console.log(`🚀 Serviço de Rastreamento rodando na porta ${PORT}`);
+      console.log(`📖 Documentação Swagger: http://localhost:${PORT}/api/docs`);
       console.log(`📍 Endpoints disponíveis:`);
       console.log(`   POST /api/tracking/location - Atualizar localização`);
       console.log(`   GET  /api/tracking/order/:id/current - Localização atual`);
