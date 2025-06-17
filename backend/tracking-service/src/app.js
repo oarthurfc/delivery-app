@@ -19,7 +19,7 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
 }));
 
 // Rotas
-app.use('/api/tracking', trackingRoutes);
+app.use('/tracking', trackingRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

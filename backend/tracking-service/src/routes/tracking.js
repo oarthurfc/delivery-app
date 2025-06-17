@@ -7,7 +7,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/tracking/location:
+ * /tracking/location:
  *   post:
  *     summary: Atualizar localização do motorista
  *     description: Permite que um motorista atualize sua localização GPS atual para um pedido específico
@@ -69,7 +69,7 @@ router.post('/location',
 
 /**
  * @swagger
- * /api/tracking/driver/{driverId}/summary:
+ * /tracking/driver/{driverId}/summary:
  *   get:
  *     summary: Obter resumo de rastreamento do motorista
  *     description: Retorna um resumo das entregas ativas de um motorista específico
@@ -112,7 +112,7 @@ router.get('/driver/:driverId/summary',
 
 /**
  * @swagger
- * /api/tracking/order/{orderId}/current:
+ * /tracking/order/{orderId}/current:
  *   get:
  *     summary: Obter localização atual do pedido
  *     description: Retorna a localização GPS mais recente de um pedido específico
@@ -152,7 +152,7 @@ router.get('/order/:orderId/current',
 
 /**
  * @swagger
- * /api/tracking/order/{orderId}/history:
+ * /tracking/order/{orderId}/history:
  *   get:
  *     summary: Obter histórico de localização do pedido
  *     description: Retorna o histórico completo de localizações de um pedido com estatísticas
@@ -215,7 +215,7 @@ router.get('/order/:orderId/history',
 
 /**
  * @swagger
- * /api/tracking/order/{orderId}/check:
+ * /tracking/order/{orderId}/check:
  *   get:
  *     summary: Verificar se pedido está sendo rastreado
  *     description: Verifica se um pedido específico possui dados de rastreamento
@@ -254,7 +254,7 @@ router.get('/order/:orderId/check',
 
 /**
  * @swagger
- * /api/tracking/nearby:
+ * /tracking/nearby:
  *   get:
  *     summary: Encontrar entregas próximas
  *     description: Busca entregas em um raio específico de uma localização
@@ -332,7 +332,7 @@ router.get('/nearby',
 
 /**
  * @swagger
- * /api/tracking/stats:
+ * /tracking/stats:
  *   get:
  *     summary: Obter estatísticas de rastreamento
  *     description: Retorna estatísticas gerais do sistema de rastreamento
@@ -375,7 +375,7 @@ router.get('/stats',
 
 /**
  * @swagger
- * /api/tracking/health:
+ * /tracking/health:
  *   get:
  *     summary: Health check do serviço
  *     description: Verifica se o serviço de rastreamento está funcionando corretamente
