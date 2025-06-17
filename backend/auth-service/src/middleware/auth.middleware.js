@@ -1,17 +1,16 @@
 const jwt = require('jsonwebtoken');
-const config = require('../config');
 
 exports.authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     
-    if (!authHeader) {
-      return res.status(401).json({ message: 'Token não fornecido' });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Token não fornecido ou formato inválido' });
     }
 
-    const [, token] = authHeader.split(' ');
+    const token = authHeader.split(' ')[1];
 
-    const decoded = jwt.verify(token, config.jwtSecret);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     
     next();
@@ -29,4 +28,25 @@ exports.authorize = (...roles) => {
     }
     next();
   };
+};
+
+exports.validateToken = (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Token não fornecido ou formato inválido' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    return res.json({
+      userId: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+    });
+  } catch (error) {
+    return res.status(401).json({ message: 'Token inválido' });
+  }
 };
