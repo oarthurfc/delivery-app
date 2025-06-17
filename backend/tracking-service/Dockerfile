@@ -25,8 +25,8 @@ RUN chown -R nodejs:nodejs /app
 # Mudar para usuário não-root
 USER nodejs
 
-# Expor a porta
-EXPOSE 3003
+# Expor a porta (configurável via ENV)
+EXPOSE 8081
 
 # Comando padrão
 CMD ["npm", "start"]
