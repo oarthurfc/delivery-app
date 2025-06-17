@@ -20,12 +20,7 @@ app.use(morgan('dev'));
 app.use(express.json());
 
 // Rotas
-app.use('/api/auth', authRoutes);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK' });
-});
+app.use('/auth', authRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {

@@ -68,7 +68,7 @@ services:
       - PORT=${AUTH_SERVICE_PORT}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=24h
-      - MONGODB_URI=mongodb://auth_user:${MONGO_PASSWORD}@mongodb:27017/auth_db?authSource=auth_db
+      - MONGODB_URI=mongodb://auth_user:auth_password@mongodb:27017/auth_db?authSource=auth_db
       - CORS_ORIGINS=http://localhost:${AUTH_SERVICE_PORT},http://localhost:${API_GATEWAY_PORT}
     networks:
       - database
@@ -144,7 +144,7 @@ services:
     networks:
       - frontend
     ports:
-      - "${API_GATEWAY_PORT}:8000"
+      - "${API_GATEWAY_PORT}:8080"
     depends_on:
       - auth-service
       - order-service

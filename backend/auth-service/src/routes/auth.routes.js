@@ -17,6 +17,12 @@ const passwordValidation = body('password')
   .withMessage('A senha deve ter no mínimo 6 caracteres');
 
 // Rotas públicas
+
+// Health check
+router.get('/health', (req, res) => {
+  res.json({ status: 'OK' });
+});
+
 router.post(
   '/register',
   [
