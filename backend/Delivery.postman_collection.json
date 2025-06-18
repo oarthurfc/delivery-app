@@ -339,6 +339,166 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "tracking-service",
+			"item": [
+				{
+					"name": "Atualizar Localização",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"description": "JWT Token"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"orderId\": 123,\n    \"driverId\": 1,\n    \"latitude\": -19.9191,\n    \"longitude\": -43.9386,\n    \"accuracy\": 10.5,\n    \"speed\": 45.2,\n    \"heading\": 180.0\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/tracking/location",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"tracking",
+								"location"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obter Resumo do Motorista",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"description": "JWT Token"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8000/api/tracking/driver/1/summary",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"tracking",
+								"driver",
+								"1",
+								"summary"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obter Localização Atual do Pedido",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"description": "JWT Token"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8000/api/tracking/order/123/current",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"tracking",
+								"order",
+								"123",
+								"current"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obter Histórico de Localização do Pedido",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"description": "JWT Token"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8000/api/tracking/order/123/history?limit=50&offset=0",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"tracking",
+								"order",
+								"123",
+								"history"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50",
+									"description": "Número máximo de pontos a retornar"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Número de pontos a pular (paginação)"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/tracking/health",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"tracking",
+								"health"
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	]
 }
