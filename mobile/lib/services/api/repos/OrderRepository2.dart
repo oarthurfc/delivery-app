@@ -141,7 +141,7 @@ class OrderRepository2 {
   }
 
   // Atualizar status do pedido
-  Future<int> updateOrderStatus(int orderId, OrderStatus newStatus) async {
+  Future<int> updateOrderStatus(int orderId, OrderStatus newStatus, int driverid) async {
     try {
       print('OrderRepository2: Atualizando status do pedido $orderId para $newStatus...');
       final order = await getById(orderId);
@@ -150,6 +150,7 @@ class OrderRepository2 {
         return 0;
       }
       order.status = newStatus;
+      order.driverId = driverid;
       return await update(order);
     } catch (e) {
       print('OrderRepository2: Erro ao atualizar status do pedido $orderId: $e');

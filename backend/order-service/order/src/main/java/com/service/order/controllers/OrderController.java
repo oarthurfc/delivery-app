@@ -74,4 +74,13 @@ public class OrderController {
         log.info("Recebida requisição para buscar pedidos paginados do motorista ID {}", driverId);
         return ResponseEntity.ok(orderService.getOrdersByDriverId(driverId, pageable));
     }
+
+    @GetMapping("/route")
+    public ResponseEntity<?> getRoute(
+            @RequestParam double originLat,
+            @RequestParam double originLng,
+            @RequestParam double destLat,
+            @RequestParam double destLng) {
+        return ResponseEntity.ok(orderService.calculateRoute(originLat, originLng, destLat, destLng));
+    }
 }

@@ -31,7 +31,7 @@ class Order {
       driverId: json['driverId'],
       status: OrderStatus.values.firstWhere(
         (e) => e.name == json['status'],
-        orElse: () => OrderStatus.PENDING,
+        // orElse: () => OrderStatus.PENDING,
       ),
       originAddress: Address.fromJson(json['originAddress']),
       destinationAddress: Address.fromJson(json['destinationAddress']),

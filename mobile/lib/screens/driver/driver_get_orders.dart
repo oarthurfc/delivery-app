@@ -222,7 +222,7 @@ class _GetOrderScreenState extends State<GetOrderScreen> {
       
       if (driverId != null) {
         // Atualiza o status do pedido via API
-        final result = await _orderRepository.updateOrderStatus(order.id, OrderStatus.ACCEPTED);
+        final result = await _orderRepository.updateOrderStatus(order.id, OrderStatus.ON_COURSE, driverId);
         if (result == 1) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Entrega aceita com sucesso!')),
