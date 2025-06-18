@@ -98,12 +98,16 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
   if (!mounted) return;
 
   try {
-    print('DeliveryDetails: Atualizando localização do motorista...');
+    print('DeliveryDetails: ===== INICIANDO ATUALIZAÇÃO DE LOCALIZAÇÃO =====');
+    print('DeliveryDetails: ID do pedido: ${widget.order.id}');
     
     // Primeiro verifica se o pedido está sendo rastreado
+    print('DeliveryDetails: Verificando se pedido está sendo rastreado...');
     final isBeingTracked = await _apiService.isOrderBeingTracked(widget.order.id);
+    print('DeliveryDetails: Pedido está sendo rastreado: $isBeingTracked');
     
     if (!isBeingTracked) {
+      print('DeliveryDetails: Pedido NÃO está sendo rastreado');
       setState(() {
         _trackingStatus = 'Motorista ainda não iniciou o rastreamento';
         _currentDriverLocation = null;
@@ -112,42 +116,112 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
     }
 
     // Busca a localização atual
+    print('DeliveryDetails: Pedido ESTÁ sendo rastreado, buscando localização...');
     final locationData = await _apiService.getCurrentLocation(widget.order.id);
+    print('DeliveryDetails: Dados brutos recebidos: $locationData');
     
-    // A resposta tem estrutura: { "success": true, "data": { "currentLocation": {...} } }
-    // Então precisamos acessar locationData['data']['currentLocation']
-    if (locationData != null && 
-        locationData['data'] != null && 
-        locationData['data']['currentLocation'] != null) {
-      
-      final location = locationData['data']['currentLocation'];
-      final lat = location['latitude']?.toDouble();
-      final lng = location['longitude']?.toDouble();
-      
-      if (lat != null && lng != null) {
-        setState(() {
-          _currentDriverLocation = LatLng(lat, lng);
-          _lastUpdate = DateTime.now();
-          _trackingStatus = 'Motorista localizado - última atualização: ${_formatTime(_lastUpdate!)}';
-        });
-        print('DeliveryDetails: Localização atualizada: $lat, $lng');
-      } else {
-        setState(() {
-          _trackingStatus = 'Erro nos dados de localização';
-        });
-      }
-    } else {
+    // Verificar a estrutura completa dos dados
+    if (locationData == null) {
+      print('DeliveryDetails: ERRO - locationData é null');
+      setState(() {
+        _trackingStatus = 'Erro: nenhum dado retornado';
+        _currentDriverLocation = null;
+      });
+      return;
+    }
+    
+    print('DeliveryDetails: Verificando estrutura dos dados...');
+    print('DeliveryDetails: locationData.keys: ${locationData.keys}');
+    
+    if (!locationData.containsKey('data')) {
+      print('DeliveryDetails: ERRO - Chave "data" não encontrada');
+      setState(() {
+        _trackingStatus = 'Erro: estrutura de dados inválida';
+        _currentDriverLocation = null;
+      });
+      return;
+    }
+    
+    final dataSection = locationData['data'];
+    print('DeliveryDetails: Seção "data": $dataSection');
+    
+    if (dataSection == null) {
+      print('DeliveryDetails: ERRO - Seção "data" é null');
+      setState(() {
+        _trackingStatus = 'Erro: seção data vazia';
+        _currentDriverLocation = null;
+      });
+      return;
+    }
+    
+    if (!dataSection.containsKey('currentLocation')) {
+      print('DeliveryDetails: ERRO - Chave "currentLocation" não encontrada');
+      print('DeliveryDetails: Chaves disponíveis em data: ${dataSection.keys}');
+      setState(() {
+        _trackingStatus = 'Erro: localização atual não encontrada';
+        _currentDriverLocation = null;
+      });
+      return;
+    }
+    
+    final location = dataSection['currentLocation'];
+    print('DeliveryDetails: Dados de localização: $location');
+    
+    if (location == null) {
+      print('DeliveryDetails: ERRO - currentLocation é null');
       setState(() {
         _trackingStatus = 'Nenhuma localização recente encontrada';
         _currentDriverLocation = null;
       });
+      return;
     }
-  } catch (e) {
-    print('DeliveryDetails: Erro ao atualizar localização: $e');
+    
+    // Extrair coordenadas
+    final lat = location['latitude'];
+    final lng = location['longitude'];
+    print('DeliveryDetails: Latitude bruta: $lat (${lat.runtimeType})');
+    print('DeliveryDetails: Longitude bruta: $lng (${lng.runtimeType})');
+    
+    if (lat == null || lng == null) {
+      print('DeliveryDetails: ERRO - Coordenadas são null');
+      setState(() {
+        _trackingStatus = 'Erro: coordenadas inválidas';
+      });
+      return;
+    }
+    
+    final latDouble = lat is double ? lat : double.tryParse(lat.toString());
+    final lngDouble = lng is double ? lng : double.tryParse(lng.toString());
+    
+    print('DeliveryDetails: Latitude convertida: $latDouble');
+    print('DeliveryDetails: Longitude convertida: $lngDouble');
+    
+    if (latDouble == null || lngDouble == null) {
+      print('DeliveryDetails: ERRO - Não foi possível converter coordenadas');
+      setState(() {
+        _trackingStatus = 'Erro: conversão de coordenadas falhou';
+      });
+      return;
+    }
+    
+    // Sucesso! Atualizar localização
+    print('DeliveryDetails: SUCESSO - Atualizando localização no mapa');
     setState(() {
-      _trackingStatus = 'Erro ao buscar localização do motorista';
+      _currentDriverLocation = LatLng(latDouble, lngDouble);
+      _lastUpdate = DateTime.now();
+      _trackingStatus = 'Motorista localizado - última atualização: ${_formatTime(_lastUpdate!)}';
+    });
+    print('DeliveryDetails: Localização atualizada com sucesso: $latDouble, $lngDouble');
+    
+  } catch (e, stackTrace) {
+    print('DeliveryDetails: ERRO EXCEPTION ao atualizar localização: $e');
+    print('DeliveryDetails: Stack trace: $stackTrace');
+    setState(() {
+      _trackingStatus = 'Erro ao buscar localização do motorista: $e';
     });
   }
+  
+  print('DeliveryDetails: ===== FIM DA ATUALIZAÇÃO DE LOCALIZAÇÃO =====');
 }
 
 
