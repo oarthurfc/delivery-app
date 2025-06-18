@@ -1,16 +1,17 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:delivery/database/repository/OrderRepository.dart';
-import 'package:delivery/database/repository/location_point_repository.dart';
+// import 'package:delivery/database/repository/OrderRepository2.dart';
 import 'package:delivery/models/address.dart';
-import 'package:delivery/models/location_point.dart';
 import 'package:delivery/models/order.dart';
 import 'package:delivery/screens/driver/driver_end_delivey.dart';
+import 'package:delivery/services/api/ApiService.dart';
+import 'package:delivery/services/api/repos/OrderRepository2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DriverDeliveryDetailsScreen extends StatefulWidget {
   final Order order;
@@ -27,21 +28,38 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
   bool _isLoadingLocation = true;
   final MapController _mapController = MapController();
   
-  // Repositórios
-  final OrderRepository _orderRepository = OrderRepository();
-  final LocationPointRepository _locationPointRepository = LocationPointRepository();
+  // Serviços
+  final OrderRepository2 _orderRepository = OrderRepository2();
+  final ApiService _apiService = ApiService();
   
-  // Timer para atualização periódica da localização
+  // Timer para envio periódico da localização
   Timer? _locationTimer;
   
   // Estado de início de viagem
   bool _isOnCourse = false;
+  bool _isSendingLocation = false;
+  DateTime? _lastLocationSent;
+  String _locationStatus = 'GPS desativado';
+  
+  // ID do motorista
+  int? _driverId;
   
   @override
   void initState() {
     super.initState();
+    _loadDriverId();
     _getCurrentLocation();
     _checkOrderStatus();
+  }
+  
+  Future<void> _loadDriverId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _driverId = prefs.getInt('current_user_id');
+      print('DriverDelivery: ID do motorista: $_driverId');
+    } catch (e) {
+      print('DriverDelivery: Erro ao carregar ID do motorista: $e');
+    }
   }
   
   void _checkOrderStatus() {
@@ -49,9 +67,30 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
       _isOnCourse = widget.order.status == OrderStatus.ON_COURSE;
     });
     
-    // Se já estiver em curso, inicia o monitoramento de localização
+    // Se já estiver em curso, inicia o envio de localização
     if (_isOnCourse) {
+      print('DriverDelivery: Pedido em transporte, iniciando envio de localização...');
       _startLocationTracking();
+    } else {
+      print('DriverDelivery: Pedido não está em transporte (${widget.order.status})');
+      setState(() {
+        _locationStatus = _getLocationStatusMessage(widget.order.status);
+      });
+    }
+  }
+
+  String _getLocationStatusMessage(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.PENDING:
+        return 'Aguardando aceitação do pedido';
+      case OrderStatus.ACCEPTED:
+        return 'Pronto para iniciar entrega';
+      case OrderStatus.ON_COURSE:
+        return 'Enviando localização...';
+      case OrderStatus.DELIVERIED:
+        return 'Entrega finalizada';
+      default:
+        return 'Status desconhecido';
     }
   }
 
@@ -100,6 +139,7 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
     if (!hasPermission) {
       setState(() {
         _isLoadingLocation = false;
+        _locationStatus = 'Permissão de localização negada';
       });
       return;
     }
@@ -111,6 +151,7 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
       setState(() {
         _currentPosition = LatLng(position.latitude, position.longitude);
         _isLoadingLocation = false;
+        _locationStatus = 'GPS ativado';
       });
 
       // Centralize o mapa na posição atual, se disponível
@@ -121,12 +162,20 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
       debugPrint('Erro ao obter localização: ${e.message}');
       setState(() {
         _isLoadingLocation = false;
+        _locationStatus = 'Erro ao obter localização';
       });
     }
   }
   
-  // Iniciar a viagem e o monitoramento de localização
+  // Iniciar a viagem e o envio automático de localização
   Future<void> _startDelivery() async {
+    if (_driverId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erro: ID do motorista não encontrado')),
+      );
+      return;
+    }
+
     try {
       // Atualizar o status do pedido para EM CURSO
       final order = widget.order;
@@ -138,10 +187,13 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Entrega iniciada! Sua localização será monitorada.')),
+        const SnackBar(
+          content: Text('Entrega iniciada! Sua localização será enviada automaticamente.'),
+          backgroundColor: Colors.green,
+        ),
       );
       
-      // Iniciar o monitoramento de localização
+      // Iniciar o envio automático de localização
       _startLocationTracking();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -150,53 +202,104 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
     }
   }
   
-  // Iniciar o monitoramento periódico de localização
+  // Iniciar o envio periódico de localização para o servidor
   void _startLocationTracking() {
-    // Cancela o timer existente, se houver
-    _locationTimer?.cancel();
+    print('DriverDelivery: Iniciando envio automático de localização');
     
-    // Configura um novo timer para atualizar a localização a cada minuto
+    // Cancela o timer existente, se houver
+    _stopLocationTracking();
+    
+    // Configura um novo timer para enviar localização a cada 1 minuto
     _locationTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      _updateLocationPoint();
+      print('DriverDelivery: Timer executado - enviando localização');
+      _sendLocationToServer();
     });
     
-    // Atualiza imediatamente a primeira vez
-    _updateLocationPoint();
+    // Envia a localização imediatamente
+    _sendLocationToServer();
+    
+    setState(() {
+      _isSendingLocation = true;
+      _locationStatus = 'Enviando localização para o servidor...';
+    });
   }
   
-  // Registrar um novo ponto de localização
-  Future<void> _updateLocationPoint() async {
+  // Parar o envio de localização
+  void _stopLocationTracking() {
+    _locationTimer?.cancel();
+    _locationTimer = null;
+    
+    if (mounted) {
+      setState(() {
+        _isSendingLocation = false;
+        _locationStatus = 'Envio de localização parado';
+      });
+    }
+  }
+  
+  // Enviar localização atual para o servidor
+  Future<void> _sendLocationToServer() async {
+    if (_driverId == null) {
+      print('DriverDelivery: ID do motorista não encontrado');
+      return;
+    }
+
     try {
+      // Obter localização atual
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high
       );
       
-      final locationPoint = LocationPoint(
-        id: DateTime.now().millisecondsSinceEpoch,
-        orderId: widget.order.id,
-        createdAt: DateTime.now(),
-        latitude: position.latitude,
-        longitude: position.longitude,
-      );
-      
-      await _locationPointRepository.save(locationPoint);
-      
+      // Atualizar posição no mapa
       setState(() {
         _currentPosition = LatLng(position.latitude, position.longitude);
       });
       
+      // Preparar dados para envio
+      final locationData = {
+        'orderId': widget.order.id,
+        'driverId': _driverId,
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'accuracy': position.accuracy,
+        'speed': position.speed,
+        'heading': position.heading,
+      };
+      
+      print('DriverDelivery: Enviando localização: $locationData');
+      
+      // Enviar para o servidor
+      await _apiService.updateLocation(locationData);
+      
+      // Atualizar status
+      setState(() {
+        _lastLocationSent = DateTime.now();
+        _locationStatus = 'Localização enviada: ${_formatTime(_lastLocationSent!)}';
+      });
+      
+      print('DriverDelivery: Localização enviada com sucesso');
+      
+      // Centralizar mapa na nova posição
       if (_currentPosition != null) {
         _mapController.move(_currentPosition!, 15.0);
       }
+      
     } catch (e) {
-      print('Erro ao atualizar localização: $e');
+      print('DriverDelivery: Erro ao enviar localização: $e');
+      setState(() {
+        _locationStatus = 'Erro ao enviar localização: $e';
+      });
     }
+  }
+  
+  String _formatTime(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
   
   // Finalizar a entrega
   void _finishDelivery() {
-    // Parar o monitoramento de localização
-    _locationTimer?.cancel();
+    // Parar o envio de localização
+    _stopLocationTracking();
     
     // Navegar para a tela de finalização
     Navigator.push(
@@ -214,7 +317,7 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
 
   @override
   void dispose() {
-    _locationTimer?.cancel();
+    _stopLocationTracking();
     super.dispose();
   }
 
@@ -227,9 +330,26 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
       appBar: AppBar(
         title: const Text('Detalhes da Entrega'),
         centerTitle: true,
+        actions: [
+          if (_isOnCourse)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _sendLocationToServer,
+              tooltip: 'Enviar localização agora',
+            ),
+        ],
       ),
       body: _isLoadingLocation 
-        ? const Center(child: CircularProgressIndicator())
+        ? const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Obtendo localização GPS...'),
+              ],
+            ),
+          )
         : SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,78 +357,127 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                 // Mapa com a localização atual e destino
                 SizedBox(
                   height: 300,
-                  child: FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      center: _currentPosition ?? 
-                        LatLng(
-                          (order.originAddress.latitude + order.destinationAddress.latitude) / 2,
-                          (order.originAddress.longitude + order.destinationAddress.longitude) / 2,
-                        ),
-                      zoom: 13,
-                    ),
+                  child: Stack(
                     children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.app',
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          // Marcador da posição atual do motorista
-                          if (_currentPosition != null)
-                            Marker(
-                              point: _currentPosition!,
-                              child: const Icon(
-                                Icons.directions_car,
-                                color: Colors.green,
-                                size: 40,
-                              ),
+                      FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(
+                          center: _currentPosition ?? 
+                            LatLng(
+                              (order.originAddress.latitude + order.destinationAddress.latitude) / 2,
+                              (order.originAddress.longitude + order.destinationAddress.longitude) / 2,
                             ),
-                          // Marcador do ponto de origem
-                          Marker(
-                            point: LatLng(
-                              order.originAddress.latitude,
-                              order.originAddress.longitude,
-                            ),
-                            child: const Icon(
-                              Icons.location_on,
-                              color: Colors.blue,
-                              size: 40,
-                            ),
+                          zoom: 13,
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.example.app',
                           ),
-                          // Marcador do ponto de destino
-                          Marker(
-                            point: LatLng(
-                              order.destinationAddress.latitude,
-                              order.destinationAddress.longitude,
-                            ),
-                            child: const Icon(
-                              Icons.flag,
-                              color: Colors.red,
-                              size: 40,
-                            ),
-                          ),
-                        ],
-                      ),
-                      // Linha entre origem e destino
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: [
-                              LatLng(
-                                order.originAddress.latitude,
-                                order.originAddress.longitude,
+                          MarkerLayer(
+                            markers: [
+                              // Marcador da posição atual do motorista
+                              if (_currentPosition != null)
+                                Marker(
+                                  point: _currentPosition!,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: _isSendingLocation ? Colors.green : Colors.blue,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                    child: Icon(
+                                      Icons.directions_car,
+                                      color: Colors.white,
+                                      size: 30,
+                                    ),
+                                  ),
+                                ),
+                              // Marcador do ponto de origem
+                              Marker(
+                                point: LatLng(
+                                  order.originAddress.latitude,
+                                  order.originAddress.longitude,
+                                ),
+                                child: const Icon(
+                                  Icons.location_on,
+                                  color: Colors.blue,
+                                  size: 40,
+                                ),
                               ),
-                              LatLng(
-                                order.destinationAddress.latitude,
-                                order.destinationAddress.longitude,
+                              // Marcador do ponto de destino
+                              Marker(
+                                point: LatLng(
+                                  order.destinationAddress.latitude,
+                                  order.destinationAddress.longitude,
+                                ),
+                                child: const Icon(
+                                  Icons.flag,
+                                  color: Colors.red,
+                                  size: 40,
+                                ),
                               ),
                             ],
-                            strokeWidth: 4,
-                            color: Colors.blue.withOpacity(0.7),
+                          ),
+                          // Linha entre origem e destino
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: [
+                                  LatLng(
+                                    order.originAddress.latitude,
+                                    order.originAddress.longitude,
+                                  ),
+                                  LatLng(
+                                    order.destinationAddress.latitude,
+                                    order.destinationAddress.longitude,
+                                  ),
+                                ],
+                                strokeWidth: 4,
+                                color: Colors.blue.withOpacity(0.7),
+                              ),
+                            ],
                           ),
                         ],
                       ),
+                      
+                      // Status do GPS/Localização
+                      if (_isOnCourse)
+                        Positioned(
+                          top: 16,
+                          left: 16,
+                          right: 16,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.95),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: _isSendingLocation ? Colors.green : Colors.orange,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _locationStatus,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -333,6 +502,57 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                         ],
                       ),
                       const SizedBox(height: 20),
+                      
+                      // Info do envio automático de localização
+                      if (_isOnCourse) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.gps_fixed, color: Colors.green.shade700, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Rastreamento Ativo',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Sua localização está sendo enviada automaticamente a cada 1 minuto para o cliente acompanhar a entrega.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.green.shade600,
+                                ),
+                              ),
+                              if (_lastLocationSent != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Último envio: ${_formatTime(_lastLocationSent!)}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.green.shade500,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                       
                       // Descrição do pedido
                       Text(
