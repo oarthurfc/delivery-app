@@ -200,7 +200,7 @@
 							}
 						],
 						"url": {
-							"raw": "http://localhost:8000/api/orders?page=0&size=10&sort=createdAt,desc",
+							"raw": "http://localhost:8000/api/orders?page=0&size=10",
 							"protocol": "http",
 							"host": [
 								"localhost"
