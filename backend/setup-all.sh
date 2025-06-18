@@ -21,7 +21,7 @@ echo "🐳 Docker está rodando."
 
 # Parar containers existentes
 echo "🛑 Parando containers existentes..."
-docker-compose down
+docker-compose down -v
 
 # Limpar imagens antigas
 echo "🧹 Limpando imagens antigas..."
