@@ -16,7 +16,7 @@ spring:
           predicates:
             - Path=/api/orders/**
           filters:
-            - name: AuthenticationFilter
+          #  - name: JwtAuthFilter // TO-DO: Turn on the filter
             - StripPrefix=1
 
         - id: tracking-service
@@ -24,5 +24,15 @@ spring:
           predicates:
             - Path=/api/tracking/**
           filters:
-            - name: AuthenticationFilter
+          #  - name: JwtAuthFilter  // TO-DO: Turn on the filter 
             - StripPrefix=1
+
+jwt:
+  secret: ${JWT_SECRET:ml2V8C#p9qK3&nX5^zA7@wR4tY6*hJ}  # Deve ser o mesmo secret usado no auth-service
+
+logging:
+  level:
+    '[org.springframework.cloud.gateway]': DEBUG
+    '[org.springframework.security]': DEBUG
+    '[com.example.gateway]': DEBUG
+    '[reactor.netty]': DEBUG
