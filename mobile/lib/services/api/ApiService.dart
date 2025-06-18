@@ -118,6 +118,81 @@ class ApiService {
     }
   }
 
+  // ===== TRACKING API =====
+
+  // Obter localização atual do pedido
+  Future<Map<String, dynamic>?> getCurrentLocation(int orderId) async {
+    try {
+      print('ApiService: Buscando localização atual do pedido $orderId');
+      final response = await _dio.get('$_baseUrl/tracking/order/$orderId/current');
+      
+      if (response.statusCode == 200 && response.data != null) {
+        print('ApiService: Localização atual encontrada');
+        return response.data['data'];
+      }
+      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        print('ApiService: Nenhuma localização encontrada para o pedido $orderId');
+        return null;
+      }
+      print('ApiService: Erro ao buscar localização: ${e.message}');
+      return null;
+    } catch (e) {
+      print('ApiService: Erro inesperado ao buscar localização: $e');
+      return null;
+    }
+  }
+
+  // Verificar se pedido está sendo rastreado
+  Future<bool> isOrderBeingTracked(int orderId) async {
+    try {
+      print('ApiService: Verificando se pedido $orderId está sendo rastreado');
+      final response = await _dio.get('$_baseUrl/tracking/order/$orderId/check');
+      
+      if (response.statusCode == 200 && response.data != null) {
+        final isTracked = response.data['data']['isBeingTracked'] ?? false;
+        print('ApiService: Pedido $orderId está sendo rastreado: $isTracked');
+        return isTracked;
+      }
+      return false;
+    } catch (e) {
+      print('ApiService: Erro ao verificar rastreamento: $e');
+      return false;
+    }
+  }
+
+  // Obter histórico de localização do pedido
+  Future<Map<String, dynamic>?> getLocationHistory(int orderId, {int limit = 50}) async {
+    try {
+      print('ApiService: Buscando histórico de localização do pedido $orderId');
+      final response = await _dio.get(
+        '$_baseUrl/tracking/order/$orderId/history',
+        queryParameters: {'limit': limit},
+      );
+      
+      if (response.statusCode == 200 && response.data != null) {
+        print('ApiService: Histórico de localização encontrado');
+        return response.data['data'];
+      }
+      return null;
+    } catch (e) {
+      print('ApiService: Erro ao buscar histórico: $e');
+      return null;
+    }
+  }
+
+  // Health check do serviço de tracking
+  Future<bool> checkTrackingHealth() async {
+    try {
+      final response = await _dio.get('$_baseUrl/tracking/health');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('ApiService: Serviço de tracking não está disponível: $e');
+      return false;
+    }
+  }
+
   // ===== ERROR HANDLING MELHORADO =====
   
   void _handleError(DioException e, String context) {

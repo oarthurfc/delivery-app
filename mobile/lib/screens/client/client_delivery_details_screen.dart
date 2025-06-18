@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../models/order.dart';
+import '../../services/api/ApiService.dart';
 
 class CustomerDeliveryDetailsScreen extends StatefulWidget {
   final Order order;
@@ -15,6 +17,137 @@ class CustomerDeliveryDetailsScreen extends StatefulWidget {
 
 class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsScreen> {
   bool _isImageExpanded = false;
+  Timer? _trackingTimer;
+  final ApiService _apiService = ApiService(); // Usando ApiService existente
+  
+  // Estado do rastreamento
+  LatLng? _currentDriverLocation;
+  bool _isTracking = false;
+  DateTime? _lastUpdate;
+  String _trackingStatus = 'Verificando rastreamento...';
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeTracking();
+  }
+
+  @override
+  void dispose() {
+    _stopTracking();
+    super.dispose();
+  }
+
+  void _initializeTracking() {
+    // Só inicia rastreamento se o pedido estiver em transporte
+    if (widget.order.status == OrderStatus.ON_COURSE) {
+      print('DeliveryDetails: Pedido em transporte, iniciando rastreamento...');
+      _startTracking();
+    } else {
+      print('DeliveryDetails: Pedido não está em transporte (${widget.order.status})');
+      setState(() {
+        _trackingStatus = _getStatusMessage(widget.order.status);
+      });
+    }
+  }
+
+  String _getStatusMessage(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.PENDING:
+        return 'Aguardando motorista aceitar o pedido';
+      case OrderStatus.ACCEPTED:
+        return 'Motorista a caminho para coleta';
+      case OrderStatus.ON_COURSE:
+        return 'Em transporte - rastreamento ativo';
+      case OrderStatus.DELIVERIED:
+        return 'Entrega concluída';
+      default:
+        return 'Status desconhecido';
+    }
+  }
+
+  void _startTracking() {
+    print('DeliveryDetails: Iniciando rastreamento em tempo real');
+    setState(() {
+      _isTracking = true;
+      _trackingStatus = 'Conectando ao rastreamento...';
+    });
+
+    // Busca localização imediatamente
+    _updateDriverLocation();
+
+    // Configura timer para atualizar a cada 2 minutos (120 segundos)
+    _trackingTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+      print('DeliveryDetails: Timer de rastreamento executado');
+      _updateDriverLocation();
+    });
+  }
+
+  void _stopTracking() {
+    print('DeliveryDetails: Parando rastreamento');
+    _trackingTimer?.cancel();
+    _trackingTimer = null;
+    if (mounted) {
+      setState(() {
+        _isTracking = false;
+      });
+    }
+  }
+
+  Future<void> _updateDriverLocation() async {
+    if (!mounted) return;
+
+    try {
+      print('DeliveryDetails: Atualizando localização do motorista...');
+      
+      // Primeiro verifica se o pedido está sendo rastreado
+      final isBeingTracked = await _apiService.isOrderBeingTracked(widget.order.id);
+      
+      if (!isBeingTracked) {
+        setState(() {
+          _trackingStatus = 'Motorista ainda não iniciou o rastreamento';
+          _currentDriverLocation = null;
+        });
+        return;
+      }
+
+      // Busca a localização atual
+      final locationData = await _apiService.getCurrentLocation(widget.order.id);
+      
+      if (locationData != null && locationData['currentLocation'] != null) {
+        final location = locationData['currentLocation'];
+        final lat = location['latitude']?.toDouble();
+        final lng = location['longitude']?.toDouble();
+        
+        if (lat != null && lng != null) {
+          setState(() {
+            _currentDriverLocation = LatLng(lat, lng);
+            _lastUpdate = DateTime.now();
+            _trackingStatus = 'Motorista localizado - última atualização: ${_formatTime(_lastUpdate!)}';
+          });
+          print('DeliveryDetails: Localização atualizada: $lat, $lng');
+        } else {
+          setState(() {
+            _trackingStatus = 'Erro nos dados de localização';
+          });
+        }
+      } else {
+        setState(() {
+          _trackingStatus = 'Nenhuma localização recente encontrada';
+          _currentDriverLocation = null;
+        });
+      }
+    } catch (e) {
+      print('DeliveryDetails: Erro ao atualizar localização: $e');
+      setState(() {
+        _trackingStatus = 'Erro ao buscar localização do motorista';
+      });
+    }
+  }
+
+  String _formatTime(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
 
   String getFormattedAddress(address) {
     return '${address.street}, ${address.number} - ${address.neighborhood}, ${address.city}';
@@ -46,6 +179,114 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
     }
   }
 
+  List<Marker> _buildMarkers() {
+    List<Marker> markers = [
+      // Marcador de origem
+      Marker(
+        point: LatLng(
+          widget.order.originAddress.latitude,
+          widget.order.originAddress.longitude,
+        ),
+        child: const Icon(
+          Icons.location_on,
+          color: Colors.blue,
+          size: 40,
+        ),
+      ),
+      // Marcador de destino
+      Marker(
+        point: LatLng(
+          widget.order.destinationAddress.latitude,
+          widget.order.destinationAddress.longitude,
+        ),
+        child: const Icon(
+          Icons.flag,
+          color: Colors.red,
+          size: 40,
+        ),
+      ),
+    ];
+
+    // Adiciona marcador do motorista se disponível
+    if (_currentDriverLocation != null) {
+      markers.add(
+        Marker(
+          point: _currentDriverLocation!,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.green,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: const Icon(
+              Icons.local_shipping,
+              color: Colors.white,
+              size: 30,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return markers;
+  }
+
+  List<Polyline> _buildPolylines() {
+    List<Polyline> polylines = [
+      // Linha da rota original (origem → destino)
+      Polyline(
+        points: [
+          LatLng(
+            widget.order.originAddress.latitude,
+            widget.order.originAddress.longitude,
+          ),
+          LatLng(
+            widget.order.destinationAddress.latitude,
+            widget.order.destinationAddress.longitude,
+          ),
+        ],
+        strokeWidth: 2,
+        color: Colors.blue.withOpacity(0.5),
+        isDotted: true,
+      ),
+    ];
+
+    // Adiciona linha até a posição atual do motorista
+    if (_currentDriverLocation != null) {
+      polylines.add(
+        Polyline(
+          points: [
+            _currentDriverLocation!,
+            LatLng(
+              widget.order.destinationAddress.latitude,
+              widget.order.destinationAddress.longitude,
+            ),
+          ],
+          strokeWidth: 4,
+          color: Colors.green,
+        ),
+      );
+    }
+
+    return polylines;
+  }
+
+  LatLng _getMapCenter() {
+    if (_currentDriverLocation != null) {
+      // Centraliza entre motorista e destino
+      return LatLng(
+        (_currentDriverLocation!.latitude + widget.order.destinationAddress.latitude) / 2,
+        (_currentDriverLocation!.longitude + widget.order.destinationAddress.longitude) / 2,
+      );
+    } else {
+      // Centraliza entre origem e destino
+      return LatLng(
+        (widget.order.originAddress.latitude + widget.order.destinationAddress.latitude) / 2,
+        (widget.order.originAddress.longitude + widget.order.destinationAddress.longitude) / 2,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
@@ -57,73 +298,76 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
       appBar: AppBar(
         title: const Text('Detalhes da Entrega'),
         centerTitle: true,
+        actions: [
+          if (_isTracking)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _updateDriverLocation,
+              tooltip: 'Atualizar localização',
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Mapa mostrando a rota
+            // Mapa com rastreamento
             SizedBox(
-              height: 250,
-              child: FlutterMap(
-                options: MapOptions(
-                  center: LatLng(
-                    (order.originAddress.latitude + order.destinationAddress.latitude) / 2,
-                    (order.originAddress.longitude + order.destinationAddress.longitude) / 2,
-                  ),
-                  zoom: 13,
-                ),
+              height: 300,
+              child: Stack(
                 children: [
-                  TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.example.app',
-                  ),                  MarkerLayer(
-                    markers: [
-                      // Marcador de origem
-                      Marker(
-                        point: LatLng(
-                          order.originAddress.latitude,
-                          order.originAddress.longitude,
-                        ),
-                        child: const Icon(
-                          Icons.location_on,
-                          color: Colors.blue,
-                          size: 40,
-                        ),
+                  FlutterMap(
+                    options: MapOptions(
+                      center: _getMapCenter(),
+                      zoom: _currentDriverLocation != null ? 14 : 13,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.example.app',
                       ),
-                      // Marcador de destino
-                      Marker(
-                        point: LatLng(
-                          order.destinationAddress.latitude,
-                          order.destinationAddress.longitude,
-                        ),
-                        child: const Icon(
-                          Icons.flag,
-                          color: Colors.red,
-                          size: 40,
-                        ),
-                      ),
+                      MarkerLayer(markers: _buildMarkers()),
+                      PolylineLayer(polylines: _buildPolylines()),
                     ],
                   ),
-                  // Linha conectando origem e destino
-                  PolylineLayer(
-                    polylines: [
-                      Polyline(
-                        points: [
-                          LatLng(
-                            order.originAddress.latitude,
-                            order.originAddress.longitude,
-                          ),
-                          LatLng(
-                            order.destinationAddress.latitude,
-                            order.destinationAddress.longitude,
-                          ),
-                        ],
-                        strokeWidth: 4,
-                        color: Colors.blue,
+                  // Status do rastreamento
+                  if (order.status == OrderStatus.ON_COURSE)
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      right: 16,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.95),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            if (_isTracking)
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: _currentDriverLocation != null ? Colors.green : Colors.orange,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _trackingStatus,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
                 ],
               ),
             ),
@@ -145,16 +389,71 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
                         size: 30,
                       ),
                       const SizedBox(width: 10),
-                      Text(
-                        'Status: $statusText',
-                        style: textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: statusColor,
+                      Expanded(
+                        child: Text(
+                          'Status: $statusText',
+                          style: textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // Info de rastreamento para pedidos em transporte
+                  if (order.status == OrderStatus.ON_COURSE) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.gps_fixed, color: Colors.blue.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Rastreamento em Tempo Real',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _currentDriverLocation != null
+                                ? 'Motorista localizado! A localização é atualizada automaticamente a cada 2 minutos.'
+                                : 'Aguardando localização do motorista...',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade600,
+                            ),
+                          ),
+                          if (_lastUpdate != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Última atualização: ${_formatTime(_lastUpdate!)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.blue.shade500,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
 
                   // Descrição do pedido
                   Text(
