@@ -22,7 +22,7 @@ echo 🐳 Docker está rodando.
 
 REM Parar containers existentes
 echo 🛑 Parando containers existentes...
-docker-compose down
+docker-compose down -v
 
 REM Limpar imagens antigas
 echo 🧹 Limpando imagens antigas...
