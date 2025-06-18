@@ -4,12 +4,15 @@ import 'package:provider/provider.dart';
 import '../../widgets/common/app_bar_widget.dart';
 import '../../services/theme_service.dart';
 import 'package:delivery/screens/driver/driver_history_screen.dart';
+import '../../providers/auth_provider.dart';
+import 'package:delivery/screens/auth/login_screen.dart';
 
 class DriverHomeScreen extends StatelessWidget {
   const DriverHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final userName = context.watch<AuthProvider>().user?['name'] ?? 'Motorista';
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
@@ -25,6 +28,17 @@ class DriverHomeScreen extends StatelessWidget {
               context.read<ThemeService>().toggleTheme();
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await context.read<AuthProvider>().logout();
+              if (context.mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              }
+            },
+          ),
         ],
       ),
       body: Center(
@@ -34,9 +48,10 @@ class DriverHomeScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text(
-                "Bem vindo, João!",
-                style: TextStyle(
+              const SizedBox(height: 20),
+              Text(
+                "Bem vindo, $userName!",
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 36,
                 ),
