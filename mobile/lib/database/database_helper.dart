@@ -73,24 +73,24 @@ class DatabaseHelper {
 
     // Tabela de pedidos
     await db.execute('''
-      CREATE TABLE orders(
-        id INTEGER PRIMARY KEY,
-        customer_id INTEGER NOT NULL,
-        driver_id INTEGER,
-        status TEXT NOT NULL,
-        origin_address_id INTEGER NOT NULL,
-        destination_address_id INTEGER NOT NULL,
-        description TEXT NOT NULL,
-        image_url TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        sync_status TEXT NOT NULL DEFAULT 'SYNCED',
-        FOREIGN KEY (customer_id) REFERENCES users (id),
-        FOREIGN KEY (driver_id) REFERENCES users (id),
-        FOREIGN KEY (origin_address_id) REFERENCES addresses (id),
-        FOREIGN KEY (destination_address_id) REFERENCES addresses (id)
-      )
-    ''');
+  CREATE TABLE orders(
+    id INTEGER PRIMARY KEY,
+    customer_id INTEGER NOT NULL,
+    driver_id INTEGER,
+    status TEXT NOT NULL,
+    origin_address TEXT NOT NULL,        
+    destination_address TEXT NOT NULL,   
+    description TEXT NOT NULL,
+    image_url TEXT,
+    price REAL NOT NULL DEFAULT 0.0,
+    receiver_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    sync_status TEXT NOT NULL DEFAULT 'SYNCED',
+    FOREIGN KEY (customer_id) REFERENCES users (id),
+    FOREIGN KEY (driver_id) REFERENCES users (id)
+  )
+''');
 
     // Tabela de pontos de localização
     await db.execute('''

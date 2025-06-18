@@ -1,11 +1,15 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../../models/order.dart';
+import '../../services/api/ApiService.dart';
 
 class CustomerDeliveryDetailsScreen extends StatefulWidget {
-  final Map<String, dynamic> encomenda;
+  final Order order;
 
-  const CustomerDeliveryDetailsScreen({super.key, required this.encomenda});
+  const CustomerDeliveryDetailsScreen({super.key, required this.order});
 
   @override
   State<CustomerDeliveryDetailsScreen> createState() => _CustomerDeliveryDetailsScreenState();
@@ -13,492 +17,524 @@ class CustomerDeliveryDetailsScreen extends StatefulWidget {
 
 class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsScreen> {
   bool _isImageExpanded = false;
+  Timer? _trackingTimer;
+  final ApiService _apiService = ApiService(); // Usando ApiService existente
+  
+  // Estado do rastreamento
+  LatLng? _currentDriverLocation;
+  bool _isTracking = false;
+  DateTime? _lastUpdate;
+  String _trackingStatus = 'Verificando rastreamento...';
 
-  String getFormattedAddress(Map<String, dynamic> address) {
-    return '${address['street']}, ${address['number']} - ${address['neighborhood']}, ${address['city']}';
+  @override
+  void initState() {
+    super.initState();
+    _initializeTracking();
   }
 
-  String getFormattedDate(String isoDate) {
-    final parts = isoDate.split('-');
-    if (parts.length == 3) {
-      return '${parts[2]}/${parts[1]}/${parts[0]}'; // DD/MM/YYYY
+  @override
+  void dispose() {
+    _stopTracking();
+    super.dispose();
+  }
+
+  void _initializeTracking() {
+    // Só inicia rastreamento se o pedido estiver em transporte
+    if (widget.order.status == OrderStatus.ON_COURSE) {
+      print('DeliveryDetails: Pedido em transporte, iniciando rastreamento...');
+      _startTracking();
+    } else {
+      print('DeliveryDetails: Pedido não está em transporte (${widget.order.status})');
+      setState(() {
+        _trackingStatus = _getStatusMessage(widget.order.status);
+      });
     }
-    return isoDate;
   }
 
-  String getStatusText(String status) {
+  String _getStatusMessage(OrderStatus status) {
     switch (status) {
-      case 'DELIVERIED':
+      case OrderStatus.PENDING:
+        return 'Aguardando motorista aceitar o pedido';
+      case OrderStatus.ACCEPTED:
+        return 'Motorista a caminho para coleta';
+      case OrderStatus.ON_COURSE:
+        return 'Em transporte - rastreamento ativo';
+      case OrderStatus.DELIVERIED:
+        return 'Entrega concluída';
+      default:
+        return 'Status desconhecido';
+    }
+  }
+
+  void _startTracking() {
+    print('DeliveryDetails: Iniciando rastreamento em tempo real');
+    setState(() {
+      _isTracking = true;
+      _trackingStatus = 'Conectando ao rastreamento...';
+    });
+
+    // Busca localização imediatamente
+    _updateDriverLocation();
+
+    // Configura timer para atualizar a cada 2 minutos (120 segundos)
+    _trackingTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
+      print('DeliveryDetails: Timer de rastreamento executado');
+      _updateDriverLocation();
+    });
+  }
+
+  void _stopTracking() {
+    print('DeliveryDetails: Parando rastreamento');
+    _trackingTimer?.cancel();
+    _trackingTimer = null;
+    if (mounted) {
+      setState(() {
+        _isTracking = false;
+      });
+    }
+  }
+
+  Future<void> _updateDriverLocation() async {
+    if (!mounted) return;
+
+    try {
+      print('DeliveryDetails: Atualizando localização do motorista...');
+      
+      // Primeiro verifica se o pedido está sendo rastreado
+      final isBeingTracked = await _apiService.isOrderBeingTracked(widget.order.id);
+      
+      if (!isBeingTracked) {
+        setState(() {
+          _trackingStatus = 'Motorista ainda não iniciou o rastreamento';
+          _currentDriverLocation = null;
+        });
+        return;
+      }
+
+      // Busca a localização atual
+      final locationData = await _apiService.getCurrentLocation(widget.order.id);
+      
+      if (locationData != null && locationData['currentLocation'] != null) {
+        final location = locationData['currentLocation'];
+        final lat = location['latitude']?.toDouble();
+        final lng = location['longitude']?.toDouble();
+        
+        if (lat != null && lng != null) {
+          setState(() {
+            _currentDriverLocation = LatLng(lat, lng);
+            _lastUpdate = DateTime.now();
+            _trackingStatus = 'Motorista localizado - última atualização: ${_formatTime(_lastUpdate!)}';
+          });
+          print('DeliveryDetails: Localização atualizada: $lat, $lng');
+        } else {
+          setState(() {
+            _trackingStatus = 'Erro nos dados de localização';
+          });
+        }
+      } else {
+        setState(() {
+          _trackingStatus = 'Nenhuma localização recente encontrada';
+          _currentDriverLocation = null;
+        });
+      }
+    } catch (e) {
+      print('DeliveryDetails: Erro ao atualizar localização: $e');
+      setState(() {
+        _trackingStatus = 'Erro ao buscar localização do motorista';
+      });
+    }
+  }
+
+  String _formatTime(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  String getFormattedAddress(address) {
+    return '${address.street}, ${address.number} - ${address.neighborhood}, ${address.city}';
+  }
+
+  String getStatusText(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.DELIVERIED:
         return 'Entregue';
-      case 'PENDING':
-        return 'Em andamento';
-      default:
-        return status;
+      case OrderStatus.PENDING:
+        return 'Pendente';
+      case OrderStatus.ACCEPTED:
+        return 'Aceito';
+      case OrderStatus.ON_COURSE:
+        return 'Em transporte';
     }
   }
 
-  Color getStatusColor(String status) {
+  Color getStatusColor(OrderStatus status) {
     switch (status) {
-      case 'DELIVERIED':
+      case OrderStatus.DELIVERIED:
         return Colors.green;
-      case 'PENDING':
+      case OrderStatus.PENDING:
         return Colors.amber;
-      default:
-        return Colors.grey;
+      case OrderStatus.ACCEPTED:
+        return Colors.blue;
+      case OrderStatus.ON_COURSE:
+        return Colors.orange;
+    }
+  }
+
+  List<Marker> _buildMarkers() {
+    List<Marker> markers = [
+      // Marcador de origem
+      Marker(
+        point: LatLng(
+          widget.order.originAddress.latitude,
+          widget.order.originAddress.longitude,
+        ),
+        child: const Icon(
+          Icons.location_on,
+          color: Colors.blue,
+          size: 40,
+        ),
+      ),
+      // Marcador de destino
+      Marker(
+        point: LatLng(
+          widget.order.destinationAddress.latitude,
+          widget.order.destinationAddress.longitude,
+        ),
+        child: const Icon(
+          Icons.flag,
+          color: Colors.red,
+          size: 40,
+        ),
+      ),
+    ];
+
+    // Adiciona marcador do motorista se disponível
+    if (_currentDriverLocation != null) {
+      markers.add(
+        Marker(
+          point: _currentDriverLocation!,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.green,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: const Icon(
+              Icons.local_shipping,
+              color: Colors.white,
+              size: 30,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return markers;
+  }
+
+  List<Polyline> _buildPolylines() {
+    List<Polyline> polylines = [
+      // Linha da rota original (origem → destino)
+      Polyline(
+        points: [
+          LatLng(
+            widget.order.originAddress.latitude,
+            widget.order.originAddress.longitude,
+          ),
+          LatLng(
+            widget.order.destinationAddress.latitude,
+            widget.order.destinationAddress.longitude,
+          ),
+        ],
+        strokeWidth: 2,
+        color: Colors.blue.withOpacity(0.5),
+        isDotted: true,
+      ),
+    ];
+
+    // Adiciona linha até a posição atual do motorista
+    if (_currentDriverLocation != null) {
+      polylines.add(
+        Polyline(
+          points: [
+            _currentDriverLocation!,
+            LatLng(
+              widget.order.destinationAddress.latitude,
+              widget.order.destinationAddress.longitude,
+            ),
+          ],
+          strokeWidth: 4,
+          color: Colors.green,
+        ),
+      );
+    }
+
+    return polylines;
+  }
+
+  LatLng _getMapCenter() {
+    if (_currentDriverLocation != null) {
+      // Centraliza entre motorista e destino
+      return LatLng(
+        (_currentDriverLocation!.latitude + widget.order.destinationAddress.latitude) / 2,
+        (_currentDriverLocation!.longitude + widget.order.destinationAddress.longitude) / 2,
+      );
+    } else {
+      // Centraliza entre origem e destino
+      return LatLng(
+        (widget.order.originAddress.latitude + widget.order.destinationAddress.latitude) / 2,
+        (widget.order.originAddress.longitude + widget.order.destinationAddress.longitude) / 2,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-    final colorScheme = theme.colorScheme;
-
-    final isDelivered = widget.encomenda['status'] == 'DELIVERIED';
-    final statusText = getStatusText(widget.encomenda['status']);
-    final statusColor = getStatusColor(widget.encomenda['status']);
-    final formattedDate = getFormattedDate(widget.encomenda['data']);
-
-    // Coordenadas da entrega
-    final LatLng origem = LatLng(
-        widget.encomenda['originAddress']['latitude'],
-        widget.encomenda['originAddress']['longitude']
-    );
-
-    final LatLng destino = LatLng(
-        widget.encomenda['destinationAddress']['latitude'],
-        widget.encomenda['destinationAddress']['longitude']
-    );
+    final order = widget.order;
+    final textTheme = Theme.of(context).textTheme;
+    final statusText = getStatusText(order.status);
+    final statusColor = getStatusColor(order.status);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Detalhes da Encomenda'),
+        title: const Text('Detalhes da Entrega'),
         centerTitle: true,
-        elevation: 0,
+        actions: [
+          if (_isTracking)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _updateDriverLocation,
+              tooltip: 'Atualizar localização',
+            ),
+        ],
       ),
-      body: Column(
-        children: [
-          // 1. Parte superior fixa (status e data)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-            color: colorScheme.primary.withOpacity(0.05),
-            child: Row(
-              children: [
-                // Status badge
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: statusColor, width: 1),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Mapa com rastreamento
+            SizedBox(
+              height: 300,
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    options: MapOptions(
+                      center: _getMapCenter(),
+                      zoom: _currentDriverLocation != null ? 14 : 13,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isDelivered ? Icons.check_circle : Icons.pending_actions,
-                          color: statusColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          statusText,
-                          style: textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Data
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Data:',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.6),
-                        ),
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.example.app',
                       ),
-                      Text(
-                        formattedDate,
-                        style: textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      MarkerLayer(markers: _buildMarkers()),
+                      PolylineLayer(polylines: _buildPolylines()),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // 2. Conteúdo com rolagem
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 3. Mapa (área central, destaque visual)
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Rota no Mapa',
-                          style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                  // Status do rastreamento
+                  if (order.status == OrderStatus.ON_COURSE)
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      right: 16,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.95),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
                         ),
-                        const SizedBox(height: 8),
-                        Card(
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SizedBox(
-                              height: 220,
-                              width: double.infinity,
-                              child: FlutterMap(
-                                options: MapOptions(
-                                  center: origem,
-                                  zoom: 13.0,
-                                  minZoom: 10.0,
-                                  maxZoom: 18.0,
-                                  interactiveFlags: InteractiveFlag.all,
-                                ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    subdomains: ['a', 'b', 'c'],
-                                  ),
-                                  MarkerLayer(
-                                    markers: [
-                                      Marker(
-                                        point: origem,
-                                        width: 60,
-                                        height: 60,
-                                        child: const Icon(Icons.location_on, color: Colors.blue, size: 32),
-                                      ),
-                                      Marker(
-                                        point: destino,
-                                        width: 60,
-                                        height: 60,
-                                        child: const Icon(Icons.flag, color: Colors.red, size: 32),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // 4. Informações da entrega
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Text(
-                              'Informações da Entrega',
-                              style: textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                            if (_isTracking)
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: _currentDriverLocation != null ? Colors.green : Colors.orange,
+                                  shape: BoxShape.circle,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Origem
-                            _buildInfoRow(
-                              context,
-                              Icons.location_on,
-                              'Origem',
-                              getFormattedAddress(widget.encomenda['originAddress']),
-                              Colors.blue,
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Destino
-                            _buildInfoRow(
-                              context,
-                              Icons.flag,
-                              'Destino',
-                              getFormattedAddress(widget.encomenda['destinationAddress']),
-                              Colors.red,
-                            ),
-
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16.0),
-                              child: Divider(height: 1),
-                            ),
-
-                            // Descrição
-                            _buildInfoRow(
-                              context,
-                              Icons.description,
-                              'Descrição',
-                              widget.encomenda['description'],
-                              Colors.grey,
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Destinatário
-                            _buildInfoRow(
-                              context,
-                              Icons.person,
-                              'Destinatário',
-                              widget.encomenda['destinatario'],
-                              Colors.grey,
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Valor
-                            _buildInfoRow(
-                              context,
-                              Icons.monetization_on,
-                              'Valor',
-                              'R\$ ${widget.encomenda['preco'].toStringAsFixed(2)}',
-                              Colors.green,
-                              isValueField: true,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _trackingStatus,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-
-                  // 5. Imagem do Produto (Expansível)
-                  if (widget.encomenda['imageUrl'] != null)
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: _buildExpandableImageSection(context),
-                    ),
-
-                  const SizedBox(height: 24),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildInfoRow(
-      BuildContext context,
-      IconData icon,
-      String label,
-      String value,
-      Color iconColor, {
-        bool isValueField = false,
-      }) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: iconColor, size: 22),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: isValueField
-                    ? textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green.shade700,
-                )
-                    : textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildExpandableImageSection(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-
-    final imageUrl = widget.encomenda['imageUrl'];
-    final hasValidImageUrl = imageUrl != null && imageUrl.toString().startsWith('http');
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _isImageExpanded = !_isImageExpanded;
-          });
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          children: [
+            // Informações do pedido
             Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.purple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.image, color: Colors.purple, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Ver Imagem do Produto',
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    _isImageExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ],
-              ),
-            ),
-            if (_isImageExpanded && hasValidImageUrl)
-              GestureDetector(
-                onTap: () => _showFullScreenImage(context, imageUrl),
-                child: Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(maxHeight: 350),
-                  padding: const EdgeInsets.only(bottom: 16.0, left: 16.0, right: 16.0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                children: [
-                                  Icon(Icons.broken_image, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 64),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'Não foi possível carregar a imagem',
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) {
-                          return child;
-                        }
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 32.0),
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            if (_isImageExpanded && !hasValidImageUrl)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Center(
-                  child: Column(
+                  // Status da entrega
+                  Row(
                     children: [
-                      Icon(Icons.image_not_supported, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 64),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Imagem não disponível ou formato inválido',
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      Icon(
+                        order.status == OrderStatus.DELIVERIED 
+                            ? Icons.check_circle 
+                            : Icons.delivery_dining,
+                        color: statusColor,
+                        size: 30,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Status: $statusText',
+                          style: textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+                  const SizedBox(height: 16),
 
-  void _showFullScreenImage(BuildContext context, String imageUrl) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            title: const Text('Visualização da imagem'),
-            backgroundColor: Colors.black,
-          ),
-          backgroundColor: Colors.black,
-          body: Center(
-            child: InteractiveViewer(
-              boundaryMargin: const EdgeInsets.all(20.0),
-              minScale: 0.5,
-              maxScale: 4.0,
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) =>
-                    Icon(Icons.broken_image, color: Theme.of(context).colorScheme.onSurface, size: 100),
+                  // Info de rastreamento para pedidos em transporte
+                  if (order.status == OrderStatus.ON_COURSE) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.gps_fixed, color: Colors.blue.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Rastreamento em Tempo Real',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _currentDriverLocation != null
+                                ? 'Motorista localizado! A localização é atualizada automaticamente a cada 2 minutos.'
+                                : 'Aguardando localização do motorista...',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade600,
+                            ),
+                          ),
+                          if (_lastUpdate != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Última atualização: ${_formatTime(_lastUpdate!)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.blue.shade500,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Descrição do pedido
+                  Text(
+                    'Descrição:',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    order.description,
+                    style: textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Endereço de origem
+                  Text(
+                    'Endereço de Coleta:',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    getFormattedAddress(order.originAddress),
+                    style: textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Endereço de destino
+                  Text(
+                    'Endereço de Entrega:',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    getFormattedAddress(order.destinationAddress),
+                    style: textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Imagem da encomenda
+                  if (order.imageUrl.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Imagem da Encomenda:',
+                          style: textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isImageExpanded = !_isImageExpanded;
+                            });
+                          },
+                          child: order.imageUrl.startsWith('http')
+                              ? Image.network(
+                                  order.imageUrl,
+                                  width: double.infinity,
+                                  height: _isImageExpanded ? null : 200,
+                                  fit: _isImageExpanded ? BoxFit.contain : BoxFit.cover,
+                                )
+                              : Image.file(
+                                  File(order.imageUrl),
+                                  width: double.infinity,
+                                  height: _isImageExpanded ? null : 200,
+                                  fit: _isImageExpanded ? BoxFit.contain : BoxFit.cover,
+                                ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

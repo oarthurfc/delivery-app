@@ -1,203 +1,268 @@
 import 'dart:io';
-import 'package:delivery/database/repository/SyncableRepository.dart';
+import 'package:delivery/database/repository/OrderRepository.dart';
 import 'package:delivery/models/order.dart';
-import 'package:delivery/screens/error_popup.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 
+class DriverEndDeliveryScreen extends StatefulWidget {
+  final Order order;
 
-
-
-class FinalizarEntregaScreen extends StatefulWidget {
-  final Order encomenda;
-  final SyncableRepository<Order> repository;
-
-  const FinalizarEntregaScreen({
+  const DriverEndDeliveryScreen({
     Key? key,
-    required this.encomenda,
-    required this.repository,
+    required this.order,
   }) : super(key: key);
 
   @override
-  State<FinalizarEntregaScreen> createState() => _FinalizarEntregaScreenState();
+  State<DriverEndDeliveryScreen> createState() => _DriverEndDeliveryScreenState();
 }
 
-class _FinalizarEntregaScreenState extends State<FinalizarEntregaScreen> {
-  File? _imagemCapturada;
+class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
+  final OrderRepository _orderRepository = OrderRepository();
+  File? _capturedImage;
   final _picker = ImagePicker();
-  bool _salvando = false;
+  bool _isSaving = false;
+  String? _currentAddress;
+  Position? _currentPosition;
 
-  Future<void> _tirarFoto() async {
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high
+      );
+      
+      setState(() {
+        _currentPosition = position;
+      });
+      
+      // Obter o endereço atual baseado nas coordenadas
+      _getAddressFromLatLng(position);
+    } catch (e) {
+      print('Erro ao obter localização: $e');
+    }
+  }
+
+  Future<void> _getAddressFromLatLng(Position position) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude
+      );
+      
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        setState(() {
+          _currentAddress = 
+              '${place.street}, ${place.subThoroughfare}, ${place.subLocality}, '
+              '${place.locality}, ${place.postalCode}, ${place.country}';
+        });
+      }
+    } catch (e) {
+      print('Erro ao obter endereço: $e');
+    }
+  }
+
+  Future<void> _takePicture() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.camera);
     if (pickedFile != null) {
       setState(() {
-        _imagemCapturada = File(pickedFile.path);
+        _capturedImage = File(pickedFile.path);
       });
     }
   }
 
-  Future<void> _finalizarEntrega() async {
-  if (_imagemCapturada == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Capture uma imagem antes de finalizar.')),
-    );
-    return;
-  }
-
-  setState(() {
-    _salvando = true;
-  });
-
-  try {
-    // Verifica permissão e localização atual
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
-      throw Exception('Permissão de localização negada');
-    }
-
-    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-
-    // Calcula a distância até o ponto de entrega
-    final distance = Geolocator.distanceBetween(
-      position.latitude,
-      position.longitude,
-      widget.encomenda.destinationAddress.latitude!,
-      widget.encomenda.destinationAddress.latitude!,
-    );
-
-    const double distanciaMaxima = 100; // em metros
-
-    if (distance > distanciaMaxima) {
-      ErrorPopup.show(
-        context: context,
-        title: 'Fora do Local de Entrega',
-        message: 'Você está a mais de 100 metros do destino da entrega.',
-        icon: Icons.location_off,
+  Future<void> _finishDelivery() async {
+    if (_capturedImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Capture uma imagem antes de finalizar.')),
       );
-
-      setState(() => _salvando = false);
       return;
     }
 
-    widget.encomenda.status = OrderStatus.DELIVERIED;
-    widget.encomenda.imageUrl = _imagemCapturada!.path;
+    setState(() {
+      _isSaving = true;
+    });
 
-    // await widget.repository.save(widget.encomenda);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Entrega finalizada com sucesso!')),
-    );
-    Navigator.pop(context);
-
-  } catch (e) {
-    if (e is PermissionDeniedException || e.toString().contains('Permissão de localização negada')) {
-      ErrorPopup.show(
-        context: context,
-        title: 'Permissão Negada',
-        message: 'Permissão de localização negada. Por favor, permita o acesso à localização para finalizar a entrega.',
-        icon: Icons.location_off,
+    try {
+      // Atualizar o status do pedido para entregue
+      final order = widget.order;
+      order.status = OrderStatus.DELIVERIED;
+      
+      // Armazenar a imagem de confirmação
+      // Nota: Em um aplicativo real, você provavelmente faria upload da imagem para um servidor
+      // e armazenaria a URL da imagem no pedido
+      
+      await _orderRepository.update(order);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Entrega finalizada com sucesso!')),
       );
-    } else {
-      ErrorPopup.show(
-        context: context,
-        title: 'Erro ao finalizar entrega',
-        message: e.toString(),
-        icon: Icons.error_outline,
+      
+      // Retornar true para a tela anterior indicando sucesso
+      Navigator.pop(context, true);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao finalizar entrega: $e')),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
-    setState(() => _salvando = false);
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Finalizar Entrega'),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: Colors.white,
+        title: const Text('Finalizar Entrega'),
+        centerTitle: true,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text(
-              'encomenda #${widget.encomenda.id}',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _imagemCapturada == null
-                ? Container(
-                    height: 200,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade400),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Nenhuma imagem capturada',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                    ),
-                  )
-                : ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      _imagemCapturada!,
-                      height: 200,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-            const SizedBox(height: 24),
-            Row(
+        child: _isSaving 
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Finalizando entrega...'),
+                ],
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _salvando ? null : _tirarFoto,
-                    icon: Icon(Icons.camera_alt),
-                    label: Text('Tirar Foto'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.secondary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                const Text(
+                  'Confirme a entrega',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Informações da localização atual
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Sua localização atual:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
+                      const SizedBox(height: 8),
+                      _currentPosition != null
+                          ? Text(
+                              'Coordenadas: ${_currentPosition!.latitude}, ${_currentPosition!.longitude}',
+                              style: const TextStyle(fontSize: 14),
+                            )
+                          : const Text('Obtendo localização...'),
+                      const SizedBox(height: 4),
+                      if (_currentAddress != null)
+                        Text(
+                          'Endereço: $_currentAddress',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Captura de imagem para confirmação
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Capture uma foto da entrega',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (_capturedImage != null)
+                        Image.file(
+                          _capturedImage!,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        )
+                      else
+                        Container(
+                          height: 200,
+                          width: double.infinity,
+                          color: Colors.grey[300],
+                          child: const Icon(
+                            Icons.camera_alt,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: _takePicture,
+                        icon: const Icon(Icons.camera_alt),
+                        label: const Text('Tirar Foto'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 32),
+                
+                // Botão de finalização
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _capturedImage != null ? _finishDelivery : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey,
+                    ),
+                    child: const Text(
+                      'CONFIRMAR ENTREGA',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
               ],
             ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _salvando ? null : _finalizarEntrega,
-                child: _salvando
-                    ? CircularProgressIndicator(color: Colors.white)
-                    : Text('Finalizar Entrega'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

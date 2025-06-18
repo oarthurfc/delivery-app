@@ -1,198 +1,182 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../database/repository/OrderRepository.dart';
+import '../../models/order.dart';
 import '../../widgets/common/app_bar_widget.dart';
 import 'driver_delivery_details_screen.dart';
 
-class DriverHistoryScreen extends StatelessWidget {
+class DriverHistoryScreen extends StatefulWidget {
   const DriverHistoryScreen({super.key});
 
-  final List<Map<String, dynamic>> entregas = const [
-    {
-      'id': 1,
-      'status': 'PENDING',
-      'data': '2025-05-10',
-      'description': 'Caixa com documentos',
-      'imageUrl': 'https://picsum.photos/200/300',
-      'destinatario': 'João Silva',
-      'preco': 45.90,
-      'originAddress': {
-        'street': 'Rua Alpha',
-        'number': '123',
-        'neighborhood': 'Centro',
-        'city': 'Belo Horizonte',
-        'latitude': -19.9245,
-        'longitude': -43.9352,
-      },
-      'destinationAddress': {
-        'street': 'Av. Beta',
-        'number': '456',
-        'neighborhood': 'Savassi',
-        'city': 'Belo Horizonte',
-        'latitude': -19.9380,
-        'longitude': -43.9270,
-      },
-    },
-    {
-      'id': 2,
-      'status': 'PENDING',
-      'data': '2025-04-28',
-      'description': 'Entrega de eletrônicos',
-      'imageUrl': 'https://picsum.photos/200/300',
-      'destinatario': 'Maria Oliveira',
-      'preco': 78.50,
-      'originAddress': {
-        'street': 'Rua das Flores',
-        'number': '10',
-        'neighborhood': 'Jardins',
-        'city': 'São Paulo',
-        'latitude': -23.5610,
-        'longitude': -46.6560,
-      },
-      'destinationAddress': {
-        'street': 'Av. Paulista',
-        'number': '1578',
-        'neighborhood': 'Bela Vista',
-        'city': 'São Paulo',
-        'latitude': -23.5640,
-        'longitude': -46.6525,
-      },
-    },
-    {
-      'id': 3,
-      'status': 'DELIVERIED',
-      'data': '2025-04-15',
-      'description': 'Livros escolares',
-      'imageUrl': 'https://picsum.photos/200/300',
-      'destinatario': 'Carlos Mendes',
-      'preco': 32.00,
-      'originAddress': {
-        'street': 'Rua do Sol',
-        'number': '85',
-        'neighborhood': 'Boa Viagem',
-        'city': 'Recife',
-        'latitude': -8.1117,
-        'longitude': -34.9156,
-      },
-      'destinationAddress': {
-        'street': 'Rua da Aurora',
-        'number': '102',
-        'neighborhood': 'Santo Amaro',
-        'city': 'Recife',
-        'latitude': -8.0631,
-        'longitude': -34.8711,
-      },
-    },
-  ];
+  @override
+  State<DriverHistoryScreen> createState() => _DriverHistoryScreenState();
+}
 
-  String getFormattedAddress(Map<String, dynamic> address) {
-    return '${address['street']}, ${address['number']} - ${address['neighborhood']}, ${address['city']}';
+class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
+  final OrderRepository _orderRepository = OrderRepository();
+  List<Order> _orders = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrders();
   }
 
-  Widget buildHistoryCard(BuildContext context, Map<String, dynamic> entrega) {
-    final textTheme = Theme.of(context).textTheme;
-    final isDelivered = entrega['status'] == 'DELIVERIED';
-    final statusText = isDelivered ? 'Entregue' : 'Em andamento';
-    final formattedDate = entrega['data'].toString().split('-').reversed.join('/');
+  Future<void> _loadOrders() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DriverDeliveryDetailsScreen(encomenda: entrega),
-          ),
-        );
-      },
-      child: Card(
-        elevation: 5,
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('current_user_id');
+
+      if (userId != null) {
+        // Buscar entregas do motorista
+        final orders = await _orderRepository.getOrdersByDriverId(userId);
+        setState(() {
+          _orders = orders;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = 'Usuário não encontrado';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao carregar entregas: $e';
+        _isLoading = false;
+      });
+      print('Erro ao carregar entregas: $e');
+    }
+  }
+
+  String getFormattedAddress(address) {
+    return '${address.street}, ${address.number} - ${address.neighborhood}, ${address.city}';
+  }
+
+  String getStatusText(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.DELIVERIED:
+        return 'Entregue';
+      case OrderStatus.PENDING:
+        return 'Pendente';
+      case OrderStatus.ACCEPTED:
+        return 'Aceito';
+      case OrderStatus.ON_COURSE:
+        return 'Em transporte';
+    }
+  }
+
+  Color getStatusColor(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.DELIVERIED:
+        return Colors.green;
+      case OrderStatus.PENDING:
+        return Colors.amber;
+      case OrderStatus.ACCEPTED:
+        return Colors.blue;
+      case OrderStatus.ON_COURSE:
+        return Colors.orange;
+    }
+  }
+
+  Widget buildOrderCard(BuildContext context, Order order) {
+    final textTheme = Theme.of(context).textTheme;
+    final statusText = getStatusText(order.status);
+    final statusColor = getStatusColor(order.status);
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DriverDeliveryDetailsScreen(order: order),
+            ),
+          ).then((_) => _loadOrders());
+        },
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Entrega Número: ${entrega['id']}',
-                style: textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-              const SizedBox(height: 8),
+              // ID da entrega e status
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(
-                    isDelivered ? Icons.check_circle : Icons.error,
-                    color: isDelivered ? Colors.green : Colors.red,
-                  ),
-                  const SizedBox(width: 5),
                   Text(
-                    statusText,
-                    style: textTheme.bodyMedium?.copyWith(
+                    'Entrega #${order.id}',
+                    style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: isDelivered ? Colors.green : Colors.red,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      statusText,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Icon(Icons.access_time, size: 18, color: Colors.grey),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Data: $formattedDate',
-                    style: textTheme.bodyMedium,
-                  ),
-                ],
+              
+              // Descrição
+              Text(
+                'Descrição: ${order.description}',
+                style: textTheme.bodyMedium,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
+              
+              // Endereço de origem
               Row(
                 children: [
-                  const Icon(Icons.location_on, size: 18, color: Colors.grey),
-                  const SizedBox(width: 5),
+                  const Icon(Icons.location_on, size: 16, color: Colors.blue),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      'Origem: ${getFormattedAddress(entrega['originAddress'])}',
-                      style: textTheme.bodyMedium,
+                      'De: ${getFormattedAddress(order.originAddress)}',
+                      style: textTheme.bodySmall,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
+              
+              // Endereço de destino
               Row(
                 children: [
-                  const Icon(Icons.account_circle, size: 18, color: Colors.grey),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Destinatário: ${entrega['destinatario']}',
-                    style: textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.monetization_on, size: 18, color: Colors.grey),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Valor: R\$ ${entrega['preco'].toStringAsFixed(2)}',
-                    style: textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.description, size: 18, color: Colors.grey),
-                  const SizedBox(width: 5),
+                  const Icon(Icons.flag, size: 16, color: Colors.red),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      'Descrição: ${entrega['description']}',
-                      style: textTheme.bodyMedium,
+                      'Para: ${getFormattedAddress(order.destinationAddress)}',
+                      style: textTheme.bodySmall,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -209,24 +193,49 @@ class DriverHistoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Histórico de Encomendas'),
+        title: const Text('Minhas Entregas'),
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadOrders,
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: entregas
-              .map((entrega) => buildHistoryCard(context, entrega))
-              .toList(),
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadOrders,
+                        child: const Text('Tentar novamente'),
+                      ),
+                    ],
+                  ),
+                )
+              : _orders.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Você ainda não tem entregas registradas.',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _orders.length,
+                      itemBuilder: (context, index) => buildOrderCard(context, _orders[index]),
+                    ),
       bottomNavigationBar: AppBottomNavBar(
-        currentIndex: 0,
+        currentIndex: 1, // Histórico é o segundo item
         onTap: (index) {
           // lógica de navegação
         },
