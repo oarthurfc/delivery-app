@@ -8,7 +8,7 @@ class ApiService {
   final TokenService _tokenService = TokenService();
 
   // Configuração de ambiente
-  static const bool runningOnEmulator = true;
+  static const bool runningOnEmulator = false;
   static const String _localIp = '192.168.167.87';
   static const String _emulatorIp = '10.0.2.2';
   static const int _port = 8000; // Porta do API Gateway
@@ -19,7 +19,7 @@ class ApiService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://8513-191-185-84-176.ngrok-free.app/api';
+    return 'https://abdb-2804-389-b112-3ff7-a209-bc2-6f7a-43f2.ngrok-free.app/api';
   }
 
   ApiService() {
