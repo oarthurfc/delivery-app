@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const config = require('./config');
+const initializeCounters = require('./utils/initCounters');
 
 // Rotas
 const authRoutes = require('./routes/auth.routes');
@@ -33,8 +34,11 @@ app.use((err, req, res, next) => {
 
 // Conexão com MongoDB
 mongoose.connect(config.mongoUri)
-  .then(() => {
+  .then(async () => {
     console.log('Conectado ao MongoDB');
+    
+    // Inicializar contadores
+    await initializeCounters();
     
     // Iniciar servidor
     app.listen(config.port, () => {
