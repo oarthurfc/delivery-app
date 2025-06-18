@@ -17,29 +17,42 @@ spring:
             allowCredentials: true
             exposedHeaders:
               - Authorization
-      routes:
-        - id: auth-service
-          uri: ${AUTH_SERVICE_URL:http://auth-service:3000}
-          predicates:
-            - Path=/api/auth/**
-          filters:
-            - StripPrefix=1
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+  main:
+    web-application-type: reactive
 
-        - id: order-service
-          uri: ${ORDER_SERVICE_URL:http://order-service:8080}
-          predicates:
-            - Path=/api/orders/**
-          filters:
-          #  - name: JwtAuthFilter // TO-DO: Turn on the filter
-            - StripPrefix=1
-
-        - id: tracking-service
-          uri: ${TRACKING_SERVICE_URL:http://tracking-service:8081}
-          predicates:
-            - Path=/api/tracking/**
-          filters:
-          #  - name: JwtAuthFilter  // TO-DO: Turn on the filter 
-            - StripPrefix=1
+# Configurações do Circuit Breaker
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+    instances:
+      authCircuitBreaker:
+        baseConfig: default
+      orderCircuitBreaker:
+        baseConfig: default
+      trackingCircuitBreaker:
+        baseConfig: default
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s
+    instances:
+      authCircuitBreaker:
+        baseConfig: default
+      orderCircuitBreaker:
+        baseConfig: default
+      trackingCircuitBreaker:
+        baseConfig: default
 
 jwt:
   secret: ${JWT_SECRET:ml2V8C#p9qK3&nX5^zA7@wR4tY6*hJ}  # Deve ser o mesmo secret usado no auth-service
@@ -48,5 +61,6 @@ logging:
   level:
     '[org.springframework.cloud.gateway]': DEBUG
     '[org.springframework.security]': DEBUG
+    '[io.github.resilience4j]': DEBUG
     '[com.example.gateway]': DEBUG
     '[reactor.netty]': DEBUG
