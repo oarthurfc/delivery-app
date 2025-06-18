@@ -3,7 +3,7 @@
 Um sistema completo de entregas desenvolvido como projeto acadêmico na PUC Minas, implementando uma arquitetura moderna com aplicativo móvel Flutter, microsserviços em backend e infraestrutura serverless na nuvem.
 
 ## 🎥 Demonstração
-
+VVIDEO 2 : https://youtu.be/iJBoM_VGZxc?si=XFKRrbm1gI13MGgf
 <p align="center">
   <table>
     <tr>
@@ -17,15 +17,15 @@ Um sistema completo de entregas desenvolvido como projeto acadêmico na PUC Mina
           <strong style="color: #333; font-family: Arial, sans-serif;">Desenvolvimento Mobile</strong>
         </a>
       </td>
-      <!-- Card 2: Em Produção -->
+      <!-- Card 2: Vídeo fornecido -->
       <td align="center" style="padding: 10px;">
-        <div style="width:300px; height:180px; display:flex; align-items:center; justify-content:center; border-radius:10px; border:1px solid #ddd; background:#f5f5f5;">
-          <strong style="color:#888; font-size:1.2em;">EM PRODUÇÃO</strong>
-        </div>
-        <br>
-        <img src="https://img.shields.io/badge/YouTube-Em%20Breve-lightgrey?style=flat-square&logo=youtube" alt="Em Breve no YouTube">
-        <br>
-        <strong style="color: #333; font-family: Arial, sans-serif;">Arquitetura de Microsserviços</strong>
+        <a href="https://youtu.be/iJBoM_VGZxc?si=XFKRrbm1gI13MGgf" target="_blank" style="text-decoration: none;">
+          <img src="https://img.youtube.com/vi/iJBoM_VGZxc/hqdefault.jpg" width="300" alt="Vídeo 2" style="border-radius: 10px; border: 1px solid #ddd;">
+          <br>
+          <img src="https://img.shields.io/badge/YouTube-Assistir-red?style=flat-square&logo=youtube" alt="Assistir no YouTube">
+          <br>
+          <strong style="color: #333; font-family: Arial, sans-serif;">Arquitetura de Microsserviços</strong>
+        </a>
       </td>
       <!-- Card 3: Em Produção -->
       <td align="center" style="padding: 10px;">
