@@ -3,13 +3,18 @@ import 'token_service.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../database/repository/UserRepository.dart';
+import '../models/user.dart';
+import '../database/database_helper.dart';
 
 class AuthService {
   final Dio _dio = Dio();
   final TokenService _tokenService = TokenService();
+  final UserRepository _userRepository = UserRepository();
   
   // Altere esta flag para true se estiver rodando no emulador Android Studio
-  static const bool runningOnEmulator = false; // <--- MUDE PARA TRUE NO EMULADOR
+  static const bool runningOnEmulator = true; // <--- MUDE PARA TRUE NO EMULADOR
 
   static const String _localIp = '192.168.167.87'; // IP do seu computador
   static const String _emulatorIp = '10.0.2.2'; // IP especial para emulador Android
@@ -51,7 +56,6 @@ class AuthService {
       ),
     );
   }
-
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await _dio.post(
@@ -74,11 +78,49 @@ class AuthService {
           final decoded = utf8.decode(base64Url.decode(normalized));
           final data = json.decode(decoded);
           
+          final role = data['role'];
+          final name = data['email'].split('@')[0]; // Fallback para nome
+          
+          // Verificar se o usuário já existe no banco de dados local
+          final db = await DatabaseHelper().database;
+          final result = await db.query(
+            'users',
+            where: 'username = ?',
+            whereArgs: [email],
+            limit: 1,
+          );
+          
+          int userId;
+          
+          if (result.isEmpty) {
+            // Usuário não existe localmente, vamos criá-lo
+            userId = DateTime.now().millisecondsSinceEpoch;
+            final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
+            
+            final user = User(
+              id: userId,
+              username: email,
+              name: name,
+              type: userType,
+            );
+            
+            // Salvar o usuário no repositório local
+            await _userRepository.save(user);
+          } else {
+            // Usuário já existe, usar o ID existente
+            userId = result.first['id'] as int;
+          }
+          
+          // Salvar o ID do usuário nas preferências compartilhadas para acesso rápido
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('current_user_id', userId);
+          
           return {
             'token': token,
             'email': data['email'],
-            'role': data['role'],
-            'name': data['email'].split('@')[0], // Fallback para nome
+            'role': role,
+            'name': name,
+            'userId': userId,
           };
         }
         
@@ -99,7 +141,6 @@ class AuthService {
       throw Exception('Erro ao fazer login. Tente novamente');
     }
   }
-
   Future<Map<String, dynamic>> register({
     required String name,
     required String email,
@@ -120,11 +161,31 @@ class AuthService {
       if (response.statusCode == 201) {
         final token = response.data['token'];
         await _tokenService.saveToken(token);
+        
+        // Criar um objeto User para salvar no banco de dados local
+        final userId = DateTime.now().millisecondsSinceEpoch; // ID temporário, será atualizado na sincronização
+        final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
+        
+        final user = User(
+          id: userId,
+          username: email,
+          name: name,
+          type: userType,
+        );
+        
+        // Salvar o usuário no repositório local
+        await _userRepository.save(user);
+        
+        // Salvar o ID do usuário nas preferências compartilhadas para acesso rápido
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('current_user_id', userId);
+        
         return {
           'token': token,
           'name': name,
           'email': email,
           'role': role,
+          'userId': userId,
         };
       }
       throw Exception('Falha no registro');
@@ -140,9 +201,26 @@ class AuthService {
       throw Exception('Erro ao fazer registro. Tente novamente');
     }
   }
-
   Future<Map<String, dynamic>> getCurrentUser() async {
     try {
+      // Primeiro, verificar se temos um usuário atual nas preferências
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('current_user_id');
+      
+      if (userId != null) {
+        // Buscar o usuário no banco de dados local
+        final user = await _userRepository.getById(userId);
+        if (user != null) {
+          return {
+            'email': user.username,
+            'role': user.type == UserType.DRIVER ? 'DRIVER' : 'CUSTOMER',
+            'name': user.name,
+            'userId': user.id,
+          };
+        }
+      }
+      
+      // Se não encontramos no banco local, tentamos validar o token
       final response = await _dio.get('$_baseUrl/validate');
       
       if (response.statusCode == 200) {
@@ -157,10 +235,49 @@ class AuthService {
             final decoded = utf8.decode(base64Url.decode(normalized));
             final data = json.decode(decoded);
             
+            final email = data['email'];
+            final role = data['role'];
+            final name = email.split('@')[0]; // Fallback para nome
+            
+            // Verificar se o usuário já existe no banco de dados local
+            final db = await DatabaseHelper().database;
+            final result = await db.query(
+              'users',
+              where: 'username = ?',
+              whereArgs: [email],
+              limit: 1,
+            );
+            
+            int newUserId;
+            
+            if (result.isEmpty) {
+              // Usuário não existe localmente, vamos criá-lo
+              newUserId = DateTime.now().millisecondsSinceEpoch;
+              final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
+              
+              final user = User(
+                id: newUserId,
+                username: email,
+                name: name,
+                type: userType,
+              );
+              
+              // Salvar o usuário no repositório local
+              await _userRepository.save(user);
+              
+              // Atualizar preferências compartilhadas
+              await prefs.setInt('current_user_id', newUserId);
+            } else {
+              // Usuário já existe, usar o ID existente
+              newUserId = result.first['id'] as int;
+              await prefs.setInt('current_user_id', newUserId);
+            }
+            
             return {
-              'email': data['email'],
-              'role': data['role'],
-              'name': data['email'].split('@')[0], // Fallback para nome
+              'email': email,
+              'role': role,
+              'name': name,
+              'userId': newUserId,
             };
           }
         }
@@ -171,8 +288,11 @@ class AuthService {
       throw Exception('Erro ao obter dados do usuário: $e');
     }
   }
-
   Future<void> logout() async {
     await _tokenService.deleteToken();
+    
+    // Limpar o ID do usuário das preferências compartilhadas
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('current_user_id');
   }
 } 

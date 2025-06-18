@@ -1,53 +1,78 @@
-// // Implementação do repositório para Settings
-// import 'package:delivery/database/database_helper.dart';
-// import 'package:delivery/database/repository/SyncableRepository.dart';
-// import 'package:delivery/models/settings.dart';
+// Implementação do repositório para Settings
+import 'package:delivery/database/database_helper.dart';
+import 'package:delivery/models/settings.dart';
+import 'package:sqflite/sqflite.dart';
 
-// class SettingsRepository extends SyncableRepository<Settings> {
-//   SettingsRepository() : super('settings');
+class SettingsRepository {
+  final String tableName = 'settings';
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
+  // Método específico para buscar configurações pelo ID do usuário
+  Future<Settings?> getSettingsByUserId(int userId) async {
+    final db = await _dbHelper.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      tableName,
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+    
+    if (maps.isEmpty) {
+      // Se não existir, criar configurações padrão
+      final defaultSettings = Settings(
+        userId: userId,
+        isDarkTheme: false,
+        showCompletedOrders: true,
+      );
+      await saveSettings(defaultSettings);
+      return defaultSettings;
+    }
+    
+    return Settings.fromMap(maps.first);
+  }
 
-//    @override
-//   Settings fromMap(Map<String, dynamic> map) => Settings.fromMap(map);
+  // Salvar as configurações
+  Future<int> saveSettings(Settings settings) async {
+    final db = await _dbHelper.database;
+    
+    return await db.insert(
+      tableName,
+      {
+        'user_id': settings.userId,
+        'is_dark_theme': settings.isDarkTheme ? 1 : 0,
+        'show_completed_orders': settings.showCompletedOrders ? 1 : 0,
+        'sync_status': 'SYNCED',
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
 
-//   @override
-//   Map<String, dynamic> toMap(Settings settings) => settings.toMap();
+  // Atualizar as configurações do usuário
+  Future<int> updateSettings(int userId, bool isDarkTheme, bool showCompletedOrders) async {
+    final db = await _dbHelper.database;
+    
+    final settings = {
+      'is_dark_theme': isDarkTheme ? 1 : 0,
+      'show_completed_orders': showCompletedOrders ? 1 : 0,
+      'sync_status': 'PENDING_UPDATE',
+    };
+    
+    return await db.update(
+      tableName,
+      settings,
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+  }
 
-//   @override
-//   int getId(Settings settings) => settings.id;
-
-//   @override
-//   Future<void> syncWithServer() async {
-//     final db = await DatabaseHelper().database;
-
-//     final unsynced = await db.query(
-//       tableName,
-//       where: 'sync_status != ?',
-//       whereArgs: ['SYNCED'],
-//     );
-
-//     for (final map in unsynced) {
-//       final settings = fromMap(map);
-//       final syncStatus = map['sync_status'];
-
-//       try {
-//         if (syncStatus == 'PENDING_SYNC') {
-//           // POST
-//         } else if (syncStatus == 'PENDING_UPDATE') {
-//           // PUT
-//         } else if (syncStatus == 'PENDING_DELETE') {
-//           // DELETE
-//         }
-
-//         await db.update(
-//           tableName,
-//           {'sync_status': 'SYNCED'},
-//           where: 'id = ?',
-//           whereArgs: [settings.id],
-//         );
-//       } catch (e) {
-//         print('Erro ao sincronizar configurações ${settings.id}: $e');
-//       }
-//     }
-//   }
-// }
+  // Criar nova configuração com base nos valores fornecidos
+  Future<Settings> createSettings(int userId, {bool isDarkTheme = false, bool showCompletedOrders = true}) async {
+    final settings = Settings(
+      userId: userId,
+      isDarkTheme: isDarkTheme,
+      showCompletedOrders: showCompletedOrders,
+    );
+    
+    await saveSettings(settings);
+    return settings;
+  }
+}
