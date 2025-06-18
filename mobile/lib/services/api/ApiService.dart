@@ -156,7 +156,21 @@ class ApiService {
           'size': size,
         },
       );
-      return response.data;
+      
+      if (response.data is List) {
+        // Se a resposta for uma lista direta, converte para o formato esperado
+        return {
+          'orders': response.data,
+          'totalElements': (response.data as List).length,
+          'totalPages': 1,
+          'currentPage': 0
+        };
+      } else if (response.data is Map) {
+        // Se já for um Map, retorna diretamente
+        return response.data;
+      } else {
+        throw Exception('Formato de resposta inválido');
+      }
     } on DioException catch (e) {
       _handleError(e, 'Erro ao listar pedidos');
       rethrow;
@@ -215,6 +229,28 @@ class ApiService {
     } on DioException catch (e) {
       _handleError(e, 'Erro ao buscar resumo do motorista');
       rethrow;
+    }
+  }
+
+  Future<bool> isOrderBeingTracked(int orderId) async {
+    try {
+      print('ApiService: Verificando se pedido $orderId está sendo rastreado');
+      final response = await _dio.get('$_baseUrl/tracking/order/$orderId/status');
+      return response.data['isTracking'] ?? false;
+    } on DioException catch (e) {
+      print('ApiService: Erro ao verificar status de rastreamento: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getCurrentLocation(int orderId) async {
+    try {
+      print('ApiService: Buscando localização atual do pedido $orderId');
+      final response = await _dio.get('$_baseUrl/tracking/order/$orderId/current');
+      return response.data;
+    } on DioException catch (e) {
+      print('ApiService: Erro ao buscar localização atual: $e');
+      return null;
     }
   }
 
@@ -337,20 +373,28 @@ class ApiService {
   }
 
   // Buscar pedidos por status com paginação
-  Future<List<dynamic>> getOrdersByStatusPaged({
+  Future<List<Map<String, dynamic>>> getOrdersByStatusPaged({
     required String status,
     int page = 0,
     int size = 10,
   }) async {
     try {
+      print('ApiService: Buscando pedidos com status $status (página $page, tamanho $size)');
       final response = await _dio.get(
         '$_baseUrl/orders',
         queryParameters: {'status': status, 'page': page, 'size': size},
       );
+      
+      List<dynamic> orders;
       if (response.data is Map && response.data.containsKey('content')) {
-        return response.data['content'];
+        orders = response.data['content'] as List<dynamic>;
+      } else if (response.data is List) {
+        orders = response.data as List<dynamic>;
+      } else {
+        throw Exception('Formato de resposta inválido');
       }
-      return response.data as List<dynamic>;
+      
+      return orders.map((item) => item as Map<String, dynamic>).toList();
     } on DioException catch (e) {
       _handleError(e, 'Erro ao buscar pedidos por status paginado');
       rethrow;

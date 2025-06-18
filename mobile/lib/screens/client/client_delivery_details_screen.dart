@@ -18,11 +18,13 @@ class CustomerDeliveryDetailsScreen extends StatefulWidget {
 class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsScreen> {
   bool _isImageExpanded = false;
   Timer? _trackingTimer;
-  final ApiService _apiService = ApiService(); // Usando ApiService existente
+  Timer? _locationTimer;
+  final ApiService _apiService = ApiService();
   
   // Estado do rastreamento
   LatLng? _currentDriverLocation;
   bool _isTracking = false;
+  bool _isOrderBeingTracked = false;
   DateTime? _lastUpdate;
   String _trackingStatus = 'Verificando rastreamento...';
 
@@ -34,7 +36,7 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
 
   @override
   void dispose() {
-    _stopTracking();
+    _locationTimer?.cancel();
     super.dispose();
   }
 
@@ -81,38 +83,52 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
       print('DeliveryDetails: Timer de rastreamento executado');
       _updateDriverLocation();
     });
+
+    // Inicia atualização de localização
+    _updateTrackingStatus();
   }
 
   void _stopTracking() {
     print('DeliveryDetails: Parando rastreamento');
     _trackingTimer?.cancel();
     _trackingTimer = null;
+    _locationTimer?.cancel();
+    _locationTimer = null;
     if (mounted) {
       setState(() {
         _isTracking = false;
+        _isOrderBeingTracked = false;
       });
     }
   }
 
-  Future<void> _updateDriverLocation() async {
+  Future<void> _updateTrackingStatus() async {
     if (!mounted) return;
+    
+    try {
+      final isTracking = await ApiService().isOrderBeingTracked(widget.order.id);
+      if (mounted) {
+        setState(() {
+          _isOrderBeingTracked = isTracking;
+        });
+
+        if (isTracking) {
+          _startLocationUpdates();
+        }
+      }
+    } catch (e) {
+      print('Erro ao verificar status de rastreamento: $e');
+    }
+  }
+
+  Future<void> _updateDriverLocation() async {
+    if (!mounted || !_isOrderBeingTracked) return;
 
     try {
       print('DeliveryDetails: Atualizando localização do motorista...');
       
-      // Primeiro verifica se o pedido está sendo rastreado
-      final isBeingTracked = await _apiService.isOrderBeingTracked(widget.order.id);
-      
-      if (!isBeingTracked) {
-        setState(() {
-          _trackingStatus = 'Motorista ainda não iniciou o rastreamento';
-          _currentDriverLocation = null;
-        });
-        return;
-      }
-
-      // Busca a localização atual
-      final locationData = await _apiService.getCurrentLocation(widget.order.id);
+      // Busca a localização atual usando o novo método do ApiService
+      final locationData = await _apiService.getCurrentOrderLocation(widget.order.id);
       
       if (locationData != null && locationData['currentLocation'] != null) {
         final location = locationData['currentLocation'];
@@ -143,6 +159,13 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
         _trackingStatus = 'Erro ao buscar localização do motorista';
       });
     }
+  }
+
+  void _startLocationUpdates() {
+    _locationTimer?.cancel();
+    _locationTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _updateDriverLocation();
+    });
   }
 
   String _formatTime(DateTime dateTime) {

@@ -48,7 +48,19 @@ class OrderRepository2 {
     try {
       print('OrderRepository2: Listando todos os pedidos...');
       final response = await _apiService.getAllOrders();
-      final orders = response.map((item) => _orderFromResponseDTO(item)).toList();
+      
+      // Verifica se a resposta está no formato de paginação
+      final List<dynamic> ordersList;
+      if (response is Map<String, dynamic> && response.containsKey('content')) {
+        ordersList = response['content'] as List<dynamic>;
+      } else {
+        ordersList = response['orders'] as List<dynamic>;
+      }
+      
+      final orders = ordersList
+          .map((item) => _orderFromResponseDTO(item as Map<String, dynamic>))
+          .toList();
+          
       print('OrderRepository2: ${orders.length} pedidos encontrados');
       return orders;
     } catch (e) {
