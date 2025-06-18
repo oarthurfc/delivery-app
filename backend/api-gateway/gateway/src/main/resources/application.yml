@@ -4,12 +4,19 @@ spring:
   cloud:
     gateway:
       globalcors:
-        corsConfigurations:
+        cors-configurations:
           '[/**]':
-            allowedOrigins: "*"
-            allowedMethods: "*"
+            allowedOriginPatterns: "*"  # Use isto ao invés de allowedOrigins
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
             allowedHeaders: "*"
-            exposedHeaders: "Authorization,Content-Type"
+            allowCredentials: true
+            exposedHeaders:
+              - Authorization
       routes:
         - id: auth-service
           uri: ${AUTH_SERVICE_URL:http://auth-service:3000}
@@ -23,7 +30,6 @@ spring:
           predicates:
             - Path=/api/orders/**
           filters:
-            # - name: AuthenticationFilter
             - StripPrefix=1
 
         - id: tracking-service
@@ -31,5 +37,4 @@ spring:
           predicates:
             - Path=/api/tracking/**
           filters:
-            # - name: AuthenticationFilter
             - StripPrefix=1

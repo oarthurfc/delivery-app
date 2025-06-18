@@ -1,10 +1,10 @@
 import 'dart:io';
+import 'package:delivery/services/api/repos/OrderRepository2.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../database/repository/OrderRepository.dart';
-import '../../database/repository/address_repository.dart';
+
 import '../../models/address.dart';
 import '../../models/order.dart';
 import '../../widgets/common/app_bar_widget.dart';
@@ -21,11 +21,8 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
   final _originController = TextEditingController();
   final _destinationController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _priceController = TextEditingController();
-  final _receiverController = TextEditingController();
   
-  final OrderRepository _orderRepository = OrderRepository();
-  final AddressRepository _addressRepository = AddressRepository();
+  final OrderRepository2 _orderRepository = OrderRepository2();
   
   File? _imageFile;
   bool _isLoading = false;
@@ -85,10 +82,10 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
         throw Exception('Não foi possível localizar um dos endereços');
       }
 
-      // Criar endereço de origem
+      // Criar endereços
       final originParts = _originController.text.split(',');
       final originAddress = Address(
-        id: DateTime.now().millisecondsSinceEpoch,
+        id: 0, // ID será definido pelo backend
         street: originParts.isNotEmpty ? originParts[0].trim() : _originController.text,
         number: originParts.length > 1 ? originParts[1].trim() : '',
         neighborhood: originParts.length > 2 ? originParts[2].trim() : '',
@@ -96,13 +93,10 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
         latitude: originCoords['latitude']!,
         longitude: originCoords['longitude']!,
       );
-      
-      await _addressRepository.save(originAddress);
 
-      // Criar endereço de destino
       final destParts = _destinationController.text.split(',');
       final destinationAddress = Address(
-        id: DateTime.now().millisecondsSinceEpoch + 1,
+        id: 0, // ID será definido pelo backend
         street: destParts.isNotEmpty ? destParts[0].trim() : _destinationController.text,
         number: destParts.length > 1 ? destParts[1].trim() : '',
         neighborhood: destParts.length > 2 ? destParts[2].trim() : '',
@@ -110,12 +104,10 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
         latitude: destCoords['latitude']!,
         longitude: destCoords['longitude']!,
       );
-      
-      await _addressRepository.save(destinationAddress);
 
       // Criar novo pedido
       final order = Order(
-        id: DateTime.now().millisecondsSinceEpoch + 2,
+        id: 0, // ID será definido pelo backend
         customerId: userId,
         status: OrderStatus.PENDING,
         originAddress: originAddress,
@@ -124,18 +116,35 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
         imageUrl: _imageFile?.path ?? '',
       );
       
-      await _orderRepository.save(order);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pedido publicado com sucesso!')),
-      );
+      // Enviar para o backend via API
+      final createdOrder = await _orderRepository.save(order);
       
-      Navigator.pop(context);
+      print('Pedido criado com sucesso: ID ${createdOrder.id}');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pedido publicado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        Navigator.pop(context);
+      }
     } catch (e) {
       setState(() {
         _errorMessage = 'Erro ao publicar pedido: $e';
       });
       print('Erro ao publicar pedido: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao publicar pedido: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -148,8 +157,6 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
     _originController.dispose();
     _destinationController.dispose();
     _descriptionController.dispose();
-    _priceController.dispose();
-    _receiverController.dispose();
     super.dispose();
   }
 
@@ -167,7 +174,16 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Publicando pedido...'),
+                ],
+              ),
+            )
           : Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(32.0),
@@ -180,10 +196,18 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
                       if (_errorMessage != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16.0),
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(color: Colors.red),
-                            textAlign: TextAlign.center,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              border: Border.all(color: Colors.red.shade300),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _errorMessage!,
+                              style: TextStyle(color: Colors.red.shade700),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
                       const SizedBox(height: 24),
@@ -194,6 +218,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
                           hintText: 'Rua das Alvoradas, 244, Centro - Belo Horizonte',
                           hintStyle: TextStyle(color: Colors.grey),
                           border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.location_on),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -210,6 +235,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
                           hintText: 'Rua das Alvoradas, 244, Centro - Belo Horizonte',
                           hintStyle: TextStyle(color: Colors.grey),
                           border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.my_location),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -226,44 +252,12 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
                           border: OutlineInputBorder(),
                           hintText: 'Chave do carro',
                           hintStyle: TextStyle(color: Colors.grey),
+                          prefixIcon: Icon(Icons.description),
                         ),
+                        maxLines: 3,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Por favor, descreva a encomenda';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _priceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Preço',
-                          prefixText: 'R\$ ',
-                          hintText: '20,00',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Por favor, informe o preço';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _receiverController,
-                        decoration: const InputDecoration(
-                          labelText: 'Quem vai receber',
-                          hintText: 'Maria Joaquina',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Por favor, informe quem vai receber';
                           }
                           return null;
                         },
@@ -280,23 +274,35 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
                       if (_imageFile != null)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Image.file(
-                            _imageFile!,
-                            height: 100,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              _imageFile!,
+                              height: 150,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _publishOrder,
+                          onPressed: _isLoading ? null : _publishOrder,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             textStyle: const TextStyle(fontSize: 18),
                           ),
-                          child: const Text('Publicar encomenda'),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text('Publicar encomenda'),
                         ),
                       ),
                     ],
