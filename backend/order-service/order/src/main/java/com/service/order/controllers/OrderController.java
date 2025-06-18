@@ -61,6 +61,7 @@ public class OrderController {
         return ResponseEntity.noContent().build();
     }
 
+<<<<<<< HEAD
     @GetMapping("/driver/{driverId}")
     public ResponseEntity<List<OrderResponseDTO>> getByDriverId(@PathVariable Long driverId) {
         log.info("Recebida requisição para buscar pedidos do motorista ID {}", driverId);
@@ -73,5 +74,14 @@ public class OrderController {
             final Pageable pageable) {
         log.info("Recebida requisição para buscar pedidos paginados do motorista ID {}", driverId);
         return ResponseEntity.ok(orderService.getOrdersByDriverId(driverId, pageable));
+=======
+    @GetMapping("/route")
+    public ResponseEntity<?> getRoute(
+            @RequestParam double originLat,
+            @RequestParam double originLng,
+            @RequestParam double destLat,
+            @RequestParam double destLng) {
+        return ResponseEntity.ok(orderService.calculateRoute(originLat, originLng, destLat, destLng));
+>>>>>>> e6fbbbe286dd236a82f3319ed63dc8541a7be03a
     }
 }

@@ -8,7 +8,7 @@ class ApiService {
   final TokenService _tokenService = TokenService();
 
   // Configuração de ambiente
-  static const bool runningOnEmulator = false;
+  static const bool runningOnEmulator = true;
   static const String _localIp = '192.168.167.87';
   static const String _emulatorIp = '10.0.2.2';
   static const int _port = 8000; // Porta do API Gateway
@@ -397,6 +397,39 @@ class ApiService {
       return orders.map((item) => item as Map<String, dynamic>).toList();
     } on DioException catch (e) {
       _handleError(e, 'Erro ao buscar pedidos por status paginado');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getOrdersByDriverId(int driverId, {bool paged = false, int page = 0, int size = 10}) async {
+    try {
+      print('ApiService: Buscando pedidos do motorista $driverId');
+      
+      final String endpoint = paged 
+          ? '$_baseUrl/orders/driver/$driverId/paged?page=$page&size=$size' 
+          : '$_baseUrl/orders/driver/$driverId';
+          
+      final response = await _dio.get(endpoint);
+      
+      if (paged) {
+        // Se for paginado, o retorno é um objeto com 'content'
+        if (response.data is Map && response.data.containsKey('content')) {
+          final content = response.data['content'] as List<dynamic>;
+          return content.map((item) => item as Map<String, dynamic>).toList();
+        } else {
+          throw Exception('Formato de resposta inválido');
+        }
+      } else {
+        // Se não for paginado, o retorno é uma lista direta
+        if (response.data is List) {
+          final orders = response.data as List<dynamic>;
+          return orders.map((item) => item as Map<String, dynamic>).toList();
+        } else {
+          throw Exception('Formato de resposta inválido');
+        }
+      }
+    } on DioException catch (e) {
+      _handleError(e, 'Erro ao buscar pedidos do motorista');
       rethrow;
     }
   }

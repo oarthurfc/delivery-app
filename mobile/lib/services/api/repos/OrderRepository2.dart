@@ -87,12 +87,41 @@ class OrderRepository2 {
   Future<List<Order>> getOrdersByDriverId(int driverId) async {
     try {
       print('OrderRepository2: Buscando pedidos do motorista $driverId...');
-      final allOrders = await getAll();
-      final driverOrders = allOrders.where((order) => order.driverId == driverId).toList();
-      print('OrderRepository2: ${driverOrders.length} pedidos encontrados para motorista $driverId');
-      return driverOrders;
+      
+      try {
+        // Tentar usar o endpoint específico primeiro
+        final List<Map<String, dynamic>> response = await _apiService.getOrdersByDriverId(driverId);
+        final orders = response.map((item) => _orderFromResponseDTO(item)).toList();
+        print('OrderRepository2: ${orders.length} pedidos encontrados para motorista $driverId (via API específica)');
+        return orders;
+      } catch (apiError) {
+        print('OrderRepository2: Erro ao usar endpoint específico: $apiError');
+        print('OrderRepository2: Tentando método alternativo...');
+        
+        // Fallback para o método original
+        final allOrders = await getAll();
+        final driverOrders = allOrders.where((order) => order.driverId == driverId).toList();
+        print('OrderRepository2: ${driverOrders.length} pedidos encontrados para motorista $driverId (via filtro)');
+        return driverOrders;
+      }
     } catch (e) {
       print('OrderRepository2: Erro ao buscar pedidos do motorista $driverId: $e');
+      return [];
+    }
+  }
+
+  // Buscar pedidos por motorista (paginado)
+  Future<List<Order>> getOrdersByDriverIdPaged(int driverId, {int page = 0, int size = 10}) async {
+    try {
+      print('OrderRepository2: Buscando pedidos paginados do motorista $driverId...');
+      final List<Map<String, dynamic>> response = 
+          await _apiService.getOrdersByDriverId(driverId, paged: true, page: page, size: size);
+      
+      final orders = response.map((item) => _orderFromResponseDTO(item)).toList();
+      print('OrderRepository2: ${orders.length} pedidos encontrados para motorista $driverId (paginado)');
+      return orders;
+    } catch (e) {
+      print('OrderRepository2: Erro ao buscar pedidos paginados do motorista $driverId: $e');
       return [];
     }
   }
