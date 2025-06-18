@@ -60,4 +60,18 @@ public class OrderController {
         orderService.deleteOrder(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/driver/{driverId}")
+    public ResponseEntity<List<OrderResponseDTO>> getByDriverId(@PathVariable Long driverId) {
+        log.info("Recebida requisição para buscar pedidos do motorista ID {}", driverId);
+        return ResponseEntity.ok(orderService.getOrdersByDriverId(driverId));
+    }
+
+    @GetMapping("/driver/{driverId}/paged")
+    public ResponseEntity<Page<OrderResponseDTO>> getByDriverIdPaged(
+            @PathVariable Long driverId,
+            final Pageable pageable) {
+        log.info("Recebida requisição para buscar pedidos paginados do motorista ID {}", driverId);
+        return ResponseEntity.ok(orderService.getOrdersByDriverId(driverId, pageable));
+    }
 }

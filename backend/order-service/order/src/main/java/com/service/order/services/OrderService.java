@@ -84,6 +84,26 @@ public class OrderService {
         orderRepository.delete(order);
     }
 
+    public List<OrderResponseDTO> getOrdersByDriverId(Long driverId) {
+        log.info("Buscando pedidos do motorista com ID {}", driverId);
+        List<Order> orders = orderRepository.findByDriverId(driverId);
+        return orders.stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    public Page<OrderResponseDTO> getOrdersByDriverId(Long driverId, Pageable pageable) {
+        log.info("Buscando pedidos do motorista com ID {} (paginado)", driverId);
+        Page<Order> ordersPage = orderRepository.findByDriverId(driverId, pageable);
+        
+        List<OrderResponseDTO> dtos = ordersPage
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(dtos, pageable, ordersPage.getTotalElements());
+    }
+
     // -----------------------
     // Métodos auxiliares
     // -----------------------
