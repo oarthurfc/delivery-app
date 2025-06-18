@@ -1,14 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../widgets/common/app_bar_widget.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/theme_service.dart';
 import 'client_publish_order.dart';
 import 'package:delivery/screens/client/client_history_screen.dart';
+import 'package:delivery/screens/auth/login_screen.dart';
 
 class ClienteHomePage extends StatelessWidget {
   const ClienteHomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final userName = authProvider.user?['name'] ?? 'Usuário';
+
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Home'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              context.watch<ThemeService>().isDarkMode
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            tooltip: 'Alternar tema',
+            onPressed: () {
+              context.read<ThemeService>().toggleTheme();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await authProvider.logout();
+              if (context.mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                );
+              }
+            },
+          ),
+        ],
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -16,9 +50,9 @@ class ClienteHomePage extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text(
-                "Bem vindo, João!",
-                style: TextStyle(
+              Text(
+                "Bem vindo, $userName!",
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 36,
                 ),
