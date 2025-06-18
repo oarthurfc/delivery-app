@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:delivery/services/api/repos/OrderRepository2.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,20 +22,8 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
   
   final OrderRepository2 _orderRepository = OrderRepository2();
   
-  File? _imageFile;
   bool _isLoading = false;
   String? _errorMessage;
-
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    
-    if (image != null) {
-      setState(() {
-        _imageFile = File(image.path);
-      });
-    }
-  }
 
   Future<Map<String, double>?> _getCoordinatesFromAddress(String address) async {
     try {
@@ -113,7 +99,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
         originAddress: originAddress,
         destinationAddress: destinationAddress,
         description: _descriptionController.text,
-        imageUrl: _imageFile?.path ?? '',
+        imageUrl: '',
       );
       
       // Enviar para o backend via API
@@ -262,28 +248,6 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: _pickImage,
-                        icon: const Icon(Icons.image),
-                        label: const Text('Adicionar imagem'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                      if (_imageFile != null)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(
-                              _imageFile!,
-                              height: 150,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
