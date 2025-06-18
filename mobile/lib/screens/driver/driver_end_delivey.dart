@@ -100,7 +100,7 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
       // Atualizar o status do pedido para entregue e adicionar imagem em base64
       final order = widget.order;
       order.status = OrderStatus.DELIVERIED;
-      order.imageUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRfjIpcdanQ4DKIwNkiZSXHqWxQxfsJsCHTtw&s";
+      order.imageUrl = "https://nfrirozajhxljhkieidn.supabase.co/storage/v1/object/public/userphotos//foto_entrega_1.jpeg";
 
       // Atualizar via API
       await _orderRepository.update(order);
