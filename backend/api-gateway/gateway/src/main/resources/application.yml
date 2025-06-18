@@ -30,10 +30,7 @@ spring:
           predicates:
             - Path=/api/orders/**
           filters:
-<<<<<<< HEAD
           #  - name: JwtAuthFilter // TO-DO: Turn on the filter
-=======
->>>>>>> fe0d096320376684c9df96b195ead81b321de32b
             - StripPrefix=1
 
         - id: tracking-service
@@ -41,7 +38,6 @@ spring:
           predicates:
             - Path=/api/tracking/**
           filters:
-<<<<<<< HEAD
           #  - name: JwtAuthFilter  // TO-DO: Turn on the filter 
             - StripPrefix=1
 
@@ -54,6 +50,3 @@ logging:
     '[org.springframework.security]': DEBUG
     '[com.example.gateway]': DEBUG
     '[reactor.netty]': DEBUG
-=======
-            - StripPrefix=1
->>>>>>> fe0d096320376684c9df96b195ead81b321de32b
