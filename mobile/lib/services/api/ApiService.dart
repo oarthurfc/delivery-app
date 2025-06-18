@@ -8,7 +8,7 @@ class ApiService {
   final TokenService _tokenService = TokenService();
   
   // Configuração de ambiente
-  static const bool runningOnEmulator = true;
+  static const bool runningOnEmulator = false;
   static const String _localIp = '192.168.167.87';
   static const String _emulatorIp = '10.0.2.2';
   static const int _port = 8000; // Porta do API Gateway
@@ -268,6 +268,27 @@ class ApiService {
     } catch (e) {
       print('ApiService: Teste de conectividade FALHOU ❌');
       print('ApiService: Erro: $e');
+      rethrow;
+    }
+  }
+
+  // Buscar pedidos por status com paginação
+  Future<List<dynamic>> getOrdersByStatusPaged({
+    required String status,
+    int page = 0,
+    int size = 10,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '$_baseUrl/orders',
+        queryParameters: {'status': status, 'page': page, 'size': size},
+      );
+      if (response.data is Map && response.data.containsKey('content')) {
+        return response.data['content'];
+      }
+      return response.data as List<dynamic>;
+    } on DioException catch (e) {
+      _handleError(e, 'Erro ao buscar pedidos por status paginado');
       rethrow;
     }
   }

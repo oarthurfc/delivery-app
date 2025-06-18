@@ -14,7 +14,7 @@ class AuthService {
   final UserRepository _userRepository = UserRepository();
   
   // Altere esta flag para true se estiver rodando no emulador Android Studio
-  static const bool runningOnEmulator = true; // <--- MUDE PARA TRUE NO EMULADOR
+  static const bool runningOnEmulator = false; // <--- MUDE PARA TRUE NO EMULADOR
 
   static const String _localIp = '192.168.167.87'; // IP do seu computador
   static const String _emulatorIp = '10.0.2.2'; // IP especial para emulador Android

@@ -99,6 +99,21 @@ class OrderRepository2 {
     }
   }
 
+  // Buscar pedidos PENDING paginados
+  Future<List<Order>> getPendingOrdersPaged({int page = 0, int size = 10}) async {
+    try {
+      print('OrderRepository2: Buscando pedidos PENDING paginados...');
+      final response = await _apiService.getOrdersByStatusPaged(status: 'PENDING', page: page, size: size);
+      final orders = response.map((item) => _orderFromResponseDTO(item)).toList();
+      final pendingOrders = orders.where((order) => order.status == OrderStatus.PENDING).toList();
+      print('OrderRepository2: ${pendingOrders.length} pedidos PENDING encontrados (filtrados localmente)');
+      return pendingOrders;
+    } catch (e) {
+      print('OrderRepository2: Erro ao buscar pedidos PENDING paginados: $e');
+      return [];
+    }
+  }
+
   // Atualizar um pedido
   Future<int> update(Order order) async {
     try {

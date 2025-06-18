@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../database/repository/OrderRepository.dart';
+import 'package:delivery/services/api/repos/OrderRepository2.dart';
 import '../../models/order.dart';
 import '../../widgets/common/app_bar_widget.dart';
 import 'driver_delivery_details_screen.dart';
@@ -15,7 +15,7 @@ class GetOrderScreen extends StatefulWidget {
 }
 
 class _GetOrderScreenState extends State<GetOrderScreen> {
-  final OrderRepository _orderRepository = OrderRepository();
+  final OrderRepository2 _orderRepository = OrderRepository2();
   List<Order> _availableOrders = [];
   bool _isLoading = true;
   String? _errorMessage;
@@ -33,8 +33,8 @@ class _GetOrderScreenState extends State<GetOrderScreen> {
     });
 
     try {
-      // Busca pedidos com status PENDING
-      final orders = await _orderRepository.getOrdersByStatus(OrderStatus.PENDING);
+      // Busca pedidos PENDING paginados
+      final orders = await _orderRepository.getPendingOrdersPaged(page: 0, size: 10);
       setState(() {
         _availableOrders = orders;
         _isLoading = false;
@@ -221,23 +221,22 @@ class _GetOrderScreenState extends State<GetOrderScreen> {
       final driverId = prefs.getInt('current_user_id');
       
       if (driverId != null) {
-        // Atualiza o pedido com o ID do motorista e muda o status
-        order.driverId = driverId;
-        order.status = OrderStatus.ACCEPTED;
-        
-        await _orderRepository.update(order);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Entrega aceita com sucesso!')),
-        );
-        
-        // Redireciona para os detalhes da entrega
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DriverDeliveryDetailsScreen(order: order),
-          ),
-        );
+        // Atualiza o status do pedido via API
+        final result = await _orderRepository.updateOrderStatus(order.id, OrderStatus.ACCEPTED);
+        if (result == 1) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Entrega aceita com sucesso!')),
+          );
+          // Redireciona para os detalhes da entrega
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DriverDeliveryDetailsScreen(order: order),
+            ),
+          );
+        } else {
+          throw Exception('Falha ao aceitar entrega');
+        }
       } else {
         throw Exception('Usuário não autenticado');
       }
@@ -285,16 +284,27 @@ class _GetOrderScreenState extends State<GetOrderScreen> {
                   ),
                 )
               : _availableOrders.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'Não há entregas disponíveis no momento.',
-                        style: TextStyle(fontSize: 18),
+                  ? RefreshIndicator(
+                      onRefresh: _loadAvailableOrders,
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: const [
+                          Center(
+                            child: Text(
+                              'Não há entregas disponíveis no momento.',
+                              style: TextStyle(fontSize: 18),
+                            ),
+                          ),
+                        ],
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _availableOrders.length,
-                      itemBuilder: (context, index) => buildOrderCard(context, _availableOrders[index]),
+                  : RefreshIndicator(
+                      onRefresh: _loadAvailableOrders,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _availableOrders.length,
+                        itemBuilder: (context, index) => buildOrderCard(context, _availableOrders[index]),
+                      ),
                     ),
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: 1, // Índice do bottomNavigationBar
