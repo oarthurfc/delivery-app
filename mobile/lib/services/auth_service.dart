@@ -14,7 +14,7 @@ class AuthService {
   final UserRepository _userRepository = UserRepository();
   
   // Altere esta flag para true se estiver rodando no emulador Android Studio
-  static const bool runningOnEmulator = true; // <--- MUDE PARA TRUE NO EMULADOR
+  static const bool runningOnEmulator = false; // <--- MUDE PARA TRUE NO EMULADOR
 
   static const String _localIp = '192.168.167.87'; // IP do seu computador
   static const String _emulatorIp = '10.0.2.2'; // IP especial para emulador Android
@@ -26,7 +26,7 @@ class AuthService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://8513-191-185-84-176.ngrok-free.app/api';
+    return 'https://c93d-2804-389-b112-3ff7-1d17-85f8-1165-3023.ngrok-free.app/api';
   }
 
   AuthService() {

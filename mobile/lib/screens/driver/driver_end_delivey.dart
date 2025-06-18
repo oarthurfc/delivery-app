@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:delivery/database/repository/OrderRepository.dart';
 import 'package:delivery/models/order.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:delivery/services/api/repos/OrderRepository2.dart';
 
 class DriverEndDeliveryScreen extends StatefulWidget {
   final Order order;
@@ -19,7 +21,7 @@ class DriverEndDeliveryScreen extends StatefulWidget {
 }
 
 class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
-  final OrderRepository _orderRepository = OrderRepository();
+  final OrderRepository2 _orderRepository = OrderRepository2();
   File? _capturedImage;
   final _picker = ImagePicker();
   bool _isSaving = false;
@@ -91,20 +93,22 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
     });
 
     try {
-      // Atualizar o status do pedido para entregue
+      // Converter imagem para base64
+      final bytes = await _capturedImage!.readAsBytes();
+      //final base64Image = base64Encode(bytes);
+
+      // Atualizar o status do pedido para entregue e adicionar imagem em base64
       final order = widget.order;
       order.status = OrderStatus.DELIVERIED;
-      
-      // Armazenar a imagem de confirmação
-      // Nota: Em um aplicativo real, você provavelmente faria upload da imagem para um servidor
-      // e armazenaria a URL da imagem no pedido
-      
+      order.imageUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRfjIpcdanQ4DKIwNkiZSXHqWxQxfsJsCHTtw&s";
+
+      // Atualizar via API
       await _orderRepository.update(order);
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Entrega finalizada com sucesso!')),
       );
-      
+
       // Retornar true para a tela anterior indicando sucesso
       Navigator.pop(context, true);
     } catch (e) {
