@@ -17,6 +17,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.http.HttpStatus;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -24,6 +28,7 @@ import java.util.stream.Collectors;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final WebClient webClient = WebClient.create();
 
     public OrderResponseDTO createOrder(CreateOrderDTO dto) {
         log.info("Criando novo pedido para o cliente ID {}", dto.getCustomerId());
@@ -82,6 +87,30 @@ public class OrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado com ID: " + id));
         orderRepository.delete(order);
+    }
+
+    public Map<String, Object> calculateRoute(double originLat, double originLng, double destLat, double destLng) {
+        String url = String.format("http://router.project-osrm.org/route/v1/driving/%f,%f;%f,%f?overview=full&geometries=geojson", originLng, originLat, destLng, destLat);
+        try {
+            Map response = webClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+            if (response == null || !response.containsKey("routes")) {
+                throw new RuntimeException("Resposta inválida da OSRM");
+            }
+            Map<String, Object> result = new java.util.HashMap<>();
+            var route = ((java.util.List) response.get("routes")).get(0);
+            if (route instanceof Map routeMap) {
+                result.put("distance", routeMap.get("distance"));
+                result.put("duration", routeMap.get("duration"));
+                result.put("geometry", routeMap.get("geometry"));
+            }
+            return result;
+        } catch (WebClientResponseException e) {
+            throw new RuntimeException("Erro ao consultar OSRM: " + e.getMessage());
+        }
     }
 
     // -----------------------

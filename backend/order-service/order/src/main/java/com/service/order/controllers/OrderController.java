@@ -60,4 +60,13 @@ public class OrderController {
         orderService.deleteOrder(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/route")
+    public ResponseEntity<?> getRoute(
+            @RequestParam double originLat,
+            @RequestParam double originLng,
+            @RequestParam double destLat,
+            @RequestParam double destLng) {
+        return ResponseEntity.ok(orderService.calculateRoute(originLat, originLng, destLat, destLng));
+    }
 }
