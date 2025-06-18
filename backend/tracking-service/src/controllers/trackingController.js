@@ -5,43 +5,81 @@ class TrackingController {
   
   // Atualizar localização do motorista
   static async updateLocation(req, res) {
-    try {
-      const { orderId, driverId, latitude, longitude, accuracy, speed, heading } = req.body;
-      
-      // Validação dos dados obrigatórios
-      if (!orderId || !driverId || latitude === undefined || longitude === undefined) {
-        return res.status(400).json({
-          error: 'Dados obrigatórios ausentes',
-          message: 'orderId, driverId, latitude e longitude são obrigatórios'
-        });
-      }
-      
-      const locationData = {
-        orderId: parseInt(orderId),
-        driverId: parseInt(driverId),
-        latitude,
-        longitude,
-        accuracy,
-        speed,
-        heading
-      };
-      
-      const result = await TrackingService.updateLocation(locationData);
-      
-      res.status(201).json({
-        success: true,
-        message: 'Localização atualizada com sucesso',
-        data: result
-      });
-      
-    } catch (error) {
-      console.error('Erro ao atualizar localização:', error);
-      res.status(400).json({
-        error: 'Erro ao atualizar localização',
-        message: error.message
+  try {
+    const { orderId, driverId, latitude, longitude, accuracy, speed, heading } = req.body;
+    
+    // Validação dos dados obrigatórios
+    if (!orderId || !driverId || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({
+        error: 'Dados obrigatórios ausentes',
+        message: 'orderId, driverId, latitude e longitude são obrigatórios'
       });
     }
+    
+    // Validação de tipos e ranges
+    const parsedOrderId = parseInt(orderId);
+    const parsedDriverId = parseInt(driverId);
+    const parsedLatitude = parseFloat(latitude);
+    const parsedLongitude = parseFloat(longitude);
+    
+    // Verificar se os IDs são números válidos
+    if (isNaN(parsedOrderId) || isNaN(parsedDriverId)) {
+      return res.status(400).json({
+        error: 'IDs inválidos',
+        message: 'orderId e driverId devem ser números válidos'
+      });
+    }
+    
+    // Verificar se as coordenadas são válidas
+    if (isNaN(parsedLatitude) || isNaN(parsedLongitude) || 
+        parsedLatitude < -90 || parsedLatitude > 90 ||
+        parsedLongitude < -180 || parsedLongitude > 180) {
+      return res.status(400).json({
+        error: 'Coordenadas inválidas',
+        message: 'Latitude deve estar entre -90 e 90, longitude entre -180 e 180'
+      });
+    }
+    
+    // Verificar se os IDs estão dentro do range do BIGINT do PostgreSQL
+    const MAX_BIGINT = 9223372036854775807;
+    const MIN_BIGINT = -9223372036854775808;
+    
+    if (parsedOrderId > MAX_BIGINT || parsedOrderId < MIN_BIGINT ||
+        parsedDriverId > MAX_BIGINT || parsedDriverId < MIN_BIGINT) {
+      return res.status(400).json({
+        error: 'IDs fora do range permitido',
+        message: 'IDs devem estar dentro do range BIGINT do PostgreSQL'
+      });
+    }
+    
+    const locationData = {
+      orderId: parsedOrderId,
+      driverId: parsedDriverId,
+      latitude: parsedLatitude,
+      longitude: parsedLongitude,
+      accuracy: accuracy ? parseFloat(accuracy) : null,
+      speed: speed ? parseFloat(speed) : null,
+      heading: heading ? parseFloat(heading) : null
+    };
+    
+    console.log('Dados de localização validados:', locationData);
+    
+    const result = await TrackingService.updateLocation(locationData);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Localização atualizada com sucesso',
+      data: result
+    });
+    
+  } catch (error) {
+    console.error('Erro ao atualizar localização:', error);
+    res.status(400).json({
+      error: 'Erro ao atualizar localização',
+      message: error.message
+    });
   }
+}
   
   // Obter localização atual de um pedido
   static async getCurrentLocation(req, res) {

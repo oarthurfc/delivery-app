@@ -5,7 +5,7 @@ import '../../models/order.dart';
 import '../../services/api/repos/OrderRepository2.dart';
 import '../../services/api/repos/DriverTrackingRepository.dart';
 import '../../widgets/common/app_bar_widget.dart';
-import 'driver_delivery_details_screen.dart';
+import 'driver_delivery_details_screen.dart' as details;
 import 'delivery_tracking_history_screen.dart';
 
 class DriverHistoryScreen extends StatefulWidget {
@@ -130,7 +130,7 @@ class _DriverHistoryScreenState extends State<DriverHistoryScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => DeliveryTrackingHistoryScreen(order: order),
+          builder: (context) => details.DriverDeliveryDetailsScreen(order: order),
         ),
       );
     } else {

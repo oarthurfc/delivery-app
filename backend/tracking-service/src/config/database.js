@@ -16,12 +16,12 @@ const pool = new Pool({
 // Função para inicializar o banco de dados
 const initDatabase = async () => {
   try {
-    // Criar tabela de pontos de localização
+    // Criar tabela de pontos de localização com BIGINT para IDs grandes
     await pool.query(`
       CREATE TABLE IF NOT EXISTS location_points (
         id SERIAL PRIMARY KEY,
-        order_id INTEGER NOT NULL,
-        driver_id INTEGER NOT NULL,
+        order_id BIGINT NOT NULL,
+        driver_id BIGINT NOT NULL,
         latitude DECIMAL(10, 8) NOT NULL,
         longitude DECIMAL(11, 8) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

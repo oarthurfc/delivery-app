@@ -229,68 +229,65 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
     _locationTimer?.cancel();
     _locationTimer = null;
     
-    if (mounted) {
-      setState(() {
-        _isSendingLocation = false;
-        _locationStatus = 'Envio de localização parado';
-      });
-    }
+    // Não chama setState no dispose para evitar erro
+    _isSendingLocation = false;
+    _locationStatus = 'Envio de localização parado';
   }
   
   // Enviar localização atual para o servidor
   Future<void> _sendLocationToServer() async {
-    if (_driverId == null) {
-      print('DriverDelivery: ID do motorista não encontrado');
-      return;
-    }
-
-    try {
-      // Obter localização atual
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high
-      );
-      
-      // Atualizar posição no mapa
-      setState(() {
-        _currentPosition = LatLng(position.latitude, position.longitude);
-      });
-      
-      // Preparar dados para envio
-      final locationData = {
-        'orderId': widget.order.id,
-        'driverId': _driverId,
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'accuracy': position.accuracy,
-        'speed': position.speed,
-        'heading': position.heading,
-      };
-      
-      print('DriverDelivery: Enviando localização: $locationData');
-      
-      // Enviar para o servidor
-      await _apiService.updateLocation(locationData);
-      
-      // Atualizar status
-      setState(() {
-        _lastLocationSent = DateTime.now();
-        _locationStatus = 'Localização enviada: ${_formatTime(_lastLocationSent!)}';
-      });
-      
-      print('DriverDelivery: Localização enviada com sucesso');
-      
-      // Centralizar mapa na nova posição
-      if (_currentPosition != null) {
-        _mapController.move(_currentPosition!, 15.0);
-      }
-      
-    } catch (e) {
-      print('DriverDelivery: Erro ao enviar localização: $e');
-      setState(() {
-        _locationStatus = 'Erro ao enviar localização: $e';
-      });
-    }
+  if (_driverId == null) {
+    print('DriverDelivery: ID do motorista não encontrado');
+    return;
   }
+
+  try {
+    // Obter localização atual
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high
+    );
+    
+    // Atualizar posição no mapa
+    setState(() {
+      _currentPosition = LatLng(position.latitude, position.longitude);
+    });
+    
+    // Preparar dados para envio - SEM conversão dos IDs
+    final locationData = {
+      'orderId': widget.order.id, // Usar ID original
+      'driverId': _driverId!, // Usar ID original
+      'latitude': position.latitude,
+      'longitude': position.longitude,
+      'accuracy': position.accuracy,
+      'speed': position.speed,
+      'heading': position.heading,
+    };
+    
+    print('DriverDelivery: Enviando localização: $locationData');
+    
+    // Enviar para o servidor
+    await _apiService.updateLocation(locationData);
+    
+    // Atualizar status
+    setState(() {
+      _lastLocationSent = DateTime.now();
+      _locationStatus = 'Localização enviada: ${_formatTime(_lastLocationSent!)}';
+    });
+    
+    print('DriverDelivery: Localização enviada com sucesso');
+    
+    // Centralizar mapa na nova posição
+    if (_currentPosition != null) {
+      _mapController.move(_currentPosition!, 15.0);
+    }
+    
+  } catch (e) {
+    print('DriverDelivery: Erro ao enviar localização: $e');
+    setState(() {
+      _locationStatus = 'Erro ao enviar localização: $e';
+    });
+  }
+}
   
   String _formatTime(DateTime dateTime) {
     return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
@@ -317,7 +314,9 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
 
   @override
   void dispose() {
-    _stopLocationTracking();
+    // Para o timer antes de fazer dispose
+    _locationTimer?.cancel();
+    _locationTimer = null;
     super.dispose();
   }
 
