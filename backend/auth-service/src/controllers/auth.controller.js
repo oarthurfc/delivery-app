@@ -31,7 +31,7 @@ exports.register = async (req, res) => {
 
     // Gerar token
     const token = jwt.sign(
-      { userId: user._id, email: user.email, role: user.role },
+      { userId: user._id, email: user.email, role: user.role, name: user.name },
       config.jwtSecret,
       { expiresIn: config.jwtExpiresIn }
     );
@@ -75,7 +75,7 @@ exports.login = async (req, res) => {
 
     // Gerar token
     const token = jwt.sign(
-      { userId: user._id, email: user.email, role: user.role },
+      { userId: user._id, email: user.email, role: user.role, name: user.name },
       config.jwtSecret,
       { expiresIn: config.jwtExpiresIn }
     );

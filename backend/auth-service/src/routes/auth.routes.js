@@ -47,6 +47,7 @@ router.post('/validate', validateToken, (req, res) => {
     const userData = {
         userId: req.user.id,
         email: req.user.email,
+        name: req.user.name,
         role: req.user.role,
     };
     

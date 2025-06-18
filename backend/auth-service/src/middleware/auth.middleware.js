@@ -45,6 +45,7 @@ exports.validateToken = (req, res) => {
       userId: decoded.id,
       email: decoded.email,
       role: decoded.role,
+      name: decoded.name
     });
   } catch (error) {
     return res.status(401).json({ message: 'Token inválido' });
