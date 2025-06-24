@@ -3,7 +3,7 @@
 Um sistema completo de entregas desenvolvido como projeto acadêmico na PUC Minas, implementando uma arquitetura moderna com aplicativo móvel Flutter, microsserviços em backend e infraestrutura serverless na nuvem.
 
 ## 🎥 Demonstração
-VIDEO 2 : pasta docs/videos
+> 📂 Os vídeos de demonstração estão organizados na pasta [`docs/videos`](docs/videos) deste repositório.
 <p align="center">
   <table>
     <tr>

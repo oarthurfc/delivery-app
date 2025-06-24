@@ -19,7 +19,7 @@ class ApiService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://c93d-2804-389-b112-3ff7-1d17-85f8-1165-3023.ngrok-free.app/api';
+    return 'https://8513-191-185-84-176.ngrok-free.app/api';
   }
 
   ApiService() {
@@ -233,15 +233,20 @@ class ApiService {
   }
 
   Future<bool> isOrderBeingTracked(int orderId) async {
-    try {
-      print('ApiService: Verificando se pedido $orderId está sendo rastreado');
-      final response = await _dio.get('$_baseUrl/tracking/order/$orderId/status');
-      return response.data['isTracking'] ?? false;
-    } on DioException catch (e) {
-      print('ApiService: Erro ao verificar status de rastreamento: $e');
-      return false;
-    }
+  try {
+    print('ApiService: Verificando se pedido $orderId está sendo rastreado');
+    final response = await _dio.get('$_baseUrl/tracking/order/$orderId/check');
+    
+    // A resposta tem a estrutura: { "success": true, "data": { "orderId": 1, "isBeingTracked": true } }
+    // Então precisamos acessar response.data['data']['isBeingTracked']
+    final isTracked = response.data['data']['isBeingTracked'] ?? false;
+    print('ApiService: Resultado do rastreamento: $isTracked');
+    return isTracked;
+  } on DioException catch (e) {
+    print('ApiService: Erro ao verificar status de rastreamento: $e');
+    return false;
   }
+}
 
   Future<Map<String, dynamic>?> getCurrentLocation(int orderId) async {
     try {
