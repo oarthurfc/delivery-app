@@ -29,6 +29,11 @@ const userSchema = new mongoose.Schema({
     enum: ['customer', 'driver'],
     default: 'customer'
   },
+  fcmToken: {
+    type: String,
+    required: true,
+    trim: true
+  },
   active: {
     type: Boolean,
     default: true

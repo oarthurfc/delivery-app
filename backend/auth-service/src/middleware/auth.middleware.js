@@ -30,7 +30,7 @@ exports.authorize = (...roles) => {
   };
 };
 
-exports.validateToken = (req, res) => {
+exports.validateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     
@@ -41,12 +41,8 @@ exports.validateToken = (req, res) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    return res.json({
-      userId: decoded.id,
-      email: decoded.email,
-      role: decoded.role,
-      name: decoded.name
-    });
+    req.user = decoded;
+    next();
   } catch (error) {
     return res.status(401).json({ message: 'Token inválido' });
   }

@@ -11,7 +11,7 @@ exports.register = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password, name, role } = req.body;
+    const { email, password, name, role, fcmToken } = req.body;
 
     // Verificar se usuário já existe
     const existingUser = await User.findOne({ email });
@@ -24,7 +24,8 @@ exports.register = async (req, res) => {
       email,
       password,
       name,
-      role
+      role,
+      fcmToken
     });
 
     await user.save();
@@ -43,7 +44,8 @@ exports.register = async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role,
+        fcmToken: user.fcmToken
       }
     });
   } catch (error) {
@@ -87,10 +89,47 @@ exports.login = async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role,
+        fcmToken: user.fcmToken
       }
     });
   } catch (error) {
     res.status(500).json({ message: 'Erro ao realizar login', error: error.message });
+  }
+};
+
+// Atualizar FCM Token
+exports.updateFcmToken = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { fcmToken } = req.body;
+    const userId = req.user.userId;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { fcmToken },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+
+    res.json({
+      message: 'FCM Token atualizado com sucesso',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        fcmToken: user.fcmToken
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao atualizar FCM Token', error: error.message });
   }
 };

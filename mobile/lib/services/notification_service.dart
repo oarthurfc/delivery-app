@@ -60,6 +60,18 @@ class NotificationService {
     });
   }
 
+  // Método para obter o FCM token
+  static Future<String?> getFcmToken() async {
+    try {
+      String? token = await firebaseMessaging.getToken();
+      print('🔔 FCM Token obtido: $token');
+      return token;
+    } catch (e) {
+      print('🔔 Erro ao obter FCM token: $e');
+      return null;
+    }
+  }
+
   static Future<void> _showFlutterNotification(RemoteMessage message) async {
     print('🔔 Showing local notification...');
     RemoteNotification? notification = message.notification;

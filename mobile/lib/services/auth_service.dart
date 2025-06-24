@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../database/repository/UserRepository.dart';
 import '../models/user.dart';
 import '../database/database_helper.dart';
+import 'notification_service.dart';
 
 class AuthService {
   final Dio _dio = Dio();
@@ -26,7 +27,7 @@ class AuthService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://c93d-2804-389-b112-3ff7-1d17-85f8-1165-3023.ngrok-free.app/api';
+    return 'https://557e-2804-14c-5ba8-8b42-1a90-5859-2fe1-b143.ngrok-free.app/api';
   }
 
   AuthService() {
@@ -56,6 +57,36 @@ class AuthService {
       ),
     );
   }
+
+  // Método para atualizar FCM token
+  Future<bool> updateFcmToken() async {
+    try {
+      final fcmToken = await NotificationService.getFcmToken();
+      if (fcmToken == null) {
+        print('AuthService: Não foi possível obter FCM token para atualização');
+        return false;
+      }
+
+      print('AuthService: Atualizando FCM token: $fcmToken');
+
+      final response = await _dio.put(
+        '$_baseUrl/auth/update-fcm-token',
+        data: {
+          'fcmToken': fcmToken,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        print('AuthService: FCM token atualizado com sucesso');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('AuthService: Erro ao atualizar FCM token: $e');
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       final response = await _dio.post(
@@ -148,6 +179,14 @@ class AuthService {
     required String role,
   }) async {
     try {
+      // Obter o FCM token
+      final fcmToken = await NotificationService.getFcmToken();
+      if (fcmToken == null) {
+        throw Exception('Não foi possível obter o token de notificação. Verifique as permissões.');
+      }
+
+      print('AuthService: Registrando com FCM token: $fcmToken');
+
       final response = await _dio.post(
         '$_baseUrl/auth/register',
         data: {
@@ -155,6 +194,7 @@ class AuthService {
           'email': email,
           'password': password,
           'role': role,
+          'fcmToken': fcmToken,
         },
       );
 

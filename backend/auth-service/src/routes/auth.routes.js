@@ -29,7 +29,8 @@ router.post(
     emailValidation,
     passwordValidation,
     body('name').trim().notEmpty().withMessage('Nome é obrigatório'),
-    body('role').isIn(['customer', 'driver']).withMessage('Tipo de usuário inválido')
+    body('role').isIn(['customer', 'driver']).withMessage('Tipo de usuário inválido'),
+    body('fcmToken').trim().notEmpty().withMessage('FCM Token é obrigatório')
   ],
   authController.register
 );
@@ -45,7 +46,7 @@ router.post(
 
 router.post('/validate', validateToken, (req, res) => {
     const userData = {
-        userId: req.user.id,
+        userId: req.user.userId,
         email: req.user.email,
         name: req.user.name,
         role: req.user.role,
@@ -53,5 +54,15 @@ router.post('/validate', validateToken, (req, res) => {
     
     res.json(userData);
 });
+
+// Rota protegida para atualizar FCM Token
+router.put(
+  '/update-fcm-token',
+  validateToken,
+  [
+    body('fcmToken').trim().notEmpty().withMessage('FCM Token é obrigatório')
+  ],
+  authController.updateFcmToken
+);
 
 module.exports = router;

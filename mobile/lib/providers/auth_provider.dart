@@ -90,6 +90,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      print('AuthProvider: Iniciando registro com FCM token');
       final response = await _authService.register(
         name: name,
         email: email,
@@ -110,6 +111,22 @@ class AuthProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<bool> updateFcmToken() async {
+    try {
+      print('AuthProvider: Atualizando FCM token');
+      final success = await _authService.updateFcmToken();
+      if (success) {
+        print('AuthProvider: FCM token atualizado com sucesso');
+      } else {
+        print('AuthProvider: Falha ao atualizar FCM token');
+      }
+      return success;
+    } catch (e) {
+      print('AuthProvider: Erro ao atualizar FCM token: $e');
+      return false;
     }
   }
 
