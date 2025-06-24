@@ -1,3 +1,4 @@
+// config/azure-functions.js - CONFIGURAÇÃO REAL
 const axios = require('axios');
 const logger = require('../utils/logger');
 
@@ -7,13 +8,9 @@ class AzureFunctionsConfig {
         this.apiKey = process.env.AZURE_FUNCTIONS_API_KEY || '';
         this.timeout = parseInt(process.env.AZURE_FUNCTIONS_TIMEOUT) || 30000;
         
-        // Endpoints das Azure Functions
+        // CONFIGURAÇÃO REAL: Apenas uma função
         this.endpoints = {
-            processOrderCompleted: '/api/ProcessOrderCompleted',
-            processOrderCreated: '/api/ProcessOrderCreated',
-            sendPromotionalCampaign: '/api/SendPromotionalCampaign',
-            sendCustomEmail: '/api/SendCustomEmail',
-            testConnection: '/api/TestEmail'
+            emailSender: '/api/email-sender'  // A única função que vocês têm
         };
         
         // Configurar cliente HTTP
@@ -26,10 +23,8 @@ class AzureFunctionsConfig {
             }
         });
         
-        // Adicionar API key se configurada
-        if (this.apiKey) {
-            this.client.defaults.headers['x-functions-key'] = this.apiKey;
-        }
+        // NÃO usar header - Azure Functions espera code no query string
+        // (baseado no que seu amigo passou)
         
         this.setupInterceptors();
     }
@@ -42,7 +37,8 @@ class AzureFunctionsConfig {
                     url: config.url,
                     method: config.method,
                     timeout: config.timeout,
-                    hasApiKey: !!this.apiKey
+                    hasApiKey: !!this.apiKey,
+                    authMethod: this.apiKey ? 'query string (code)' : 'anonymous'
                 });
                 return config;
             },
@@ -59,16 +55,28 @@ class AzureFunctionsConfig {
                     status: response.status,
                     statusText: response.statusText,
                     url: response.config.url,
-                    responseTime: response.headers['x-ms-execution-time-ms'] || 'unknown'
+                    executionTime: response.headers['x-ms-execution-time'] || 'unknown'
                 });
                 return response;
             },
             (error) => {
                 if (error.response) {
-                    logger.error(`❌ Azure Functions Error: ${error.response.status}`, {
-                        status: error.response.status,
+                    const status = error.response.status;
+                    let errorMessage = error.response.data?.error || error.response.statusText;
+                    
+                    if (status === 401) {
+                        errorMessage = 'Authentication failed - check API key (code parameter)';
+                    } else if (status === 404) {
+                        errorMessage = 'Azure Function email-sender not found';
+                    } else if (status === 500) {
+                        errorMessage = 'Azure Function internal error';
+                    }
+                    
+                    logger.error(`❌ Azure Functions Error: ${status}`, {
+                        status,
                         statusText: error.response.statusText,
                         url: error.config?.url,
+                        error: errorMessage,
                         data: error.response.data
                     });
                 } else if (error.request) {
@@ -86,66 +94,107 @@ class AzureFunctionsConfig {
     }
     
     /**
-     * Método genérico para chamar qualquer endpoint
+     * Chamar a única Azure Function: email-sender
      */
-    async callEndpoint(endpointName, data, options = {}) {
+    async callEmailSender(emailData, requestType = 'email') {
         try {
-            const endpoint = this.endpoints[endpointName];
-            if (!endpoint) {
-                throw new Error(`Endpoint '${endpointName}' não encontrado`);
-            }
-
-            logger.info(`📞 Chamando Azure Function: ${endpointName}`, {
+            const endpoint = this.endpoints.emailSender;
+            
+            logger.info(`📞 Chamando Azure Function: email-sender`, {
                 endpoint,
-                dataKeys: Object.keys(data || {})
+                requestType,
+                recipient: emailData.to,
+                hasApiKey: !!this.apiKey
             });
             
-            const response = await this.client.post(endpoint, data, options);
+            // Preparar URL com query string se tiver API key
+            let url = endpoint;
+            const params = {};
+            
+            if (this.apiKey) {
+                params.code = this.apiKey;
+            }
+            
+            // Preparar payload baseado no tipo de notificação
+            const payload = this.preparePayload(emailData, requestType);
+            
+            // Fazer requisição para Azure Function
+            const response = await this.client.post(url, payload, { params });
             
             return {
                 success: true,
                 data: response.data,
                 status: response.status,
-                executionTime: response.headers['x-ms-execution-time-ms']
+                executionTime: response.headers['x-ms-execution-time']
             };
             
         } catch (error) {
-            logger.error(`❌ Falha em ${endpointName}:`, {
-                endpoint: endpointName,
+            logger.error(`❌ Falha em Azure Function email-sender:`, {
                 error: error.message,
-                status: error.response?.status
+                status: error.response?.status,
+                hasApiKey: !!this.apiKey
             });
             
-            throw new Error(`Azure Function ${endpointName} falhou: ${error.message}`);
+            throw new Error(`Azure Function email-sender falhou: ${error.message}`);
         }
     }
     
     /**
-     * Chamar endpoint de pedido finalizado
+     * Preparar payload baseado no tipo de requisição
      */
-    async callProcessOrderCompleted(orderData) {
-        return this.callEndpoint('processOrderCompleted', orderData);
+    preparePayload(data, requestType) {
+        const basePayload = {
+            timestamp: new Date().toISOString(),
+            source: 'notification-service',
+            type: requestType
+        };
+        
+        if (requestType === 'email') {
+            return {
+                ...basePayload,
+                to: data.to,
+                subject: data.subject,
+                body: data.body,
+                template: data.template,
+                variables: data.variables || {},
+                from: {
+                    name: process.env.EMAIL_FROM_NAME || 'Delivery Notification Service',
+                    email: process.env.EMAIL_FROM_ADDRESS || 'noreply@delivery.com'
+                }
+            };
+        } else if (requestType === 'push') {
+            return {
+                ...basePayload,
+                userIds: Array.isArray(data.userId) ? data.userId : [data.userId],
+                title: data.title,
+                body: data.body,
+                data: data.data || {},
+                deepLink: data.deepLink
+            };
+        } else if (requestType === 'test') {
+            return {
+                ...basePayload,
+                test: true,
+                message: 'Testing connectivity with Azure Functions'
+            };
+        }
+        
+        return { ...basePayload, ...data };
     }
     
     /**
-     * Chamar endpoint de pedido criado
+     * Enviar email via Azure Function
      */
-    async callProcessOrderCreated(orderData) {
-        return this.callEndpoint('processOrderCreated', orderData);
+    async sendEmail(emailData) {
+        return this.callEmailSender(emailData, 'email');
     }
     
     /**
-     * Chamar endpoint de campanha promocional
+     * Enviar push notification via Azure Function
+     * (se a função suportar múltiplos tipos)
      */
-    async callSendPromotionalCampaign(campaignData) {
-        return this.callEndpoint('sendPromotionalCampaign', campaignData);
-    }
-
-    /**
-     * Chamar endpoint de email customizado
-     */
-    async callSendCustomEmail(emailData) {
-        return this.callEndpoint('sendCustomEmail', emailData);
+    async sendPushNotification(pushData) {
+        return this.callEmailSender(pushData, 'push');
     }
     
     /**
@@ -158,34 +207,25 @@ class AzureFunctionsConfig {
             const testData = {
                 test: true,
                 timestamp: new Date().toISOString(),
-                service: 'notification-service'
+                source: 'notification-service'
             };
             
-            // Tentar endpoint de teste primeiro
-            let response;
-            try {
-                response = await this.callEndpoint('testConnection', testData);
-            } catch (testError) {
-                // Se endpoint de teste não existir, usar ProcessOrderCreated
-                response = await this.callEndpoint('processOrderCreated', {
-                    eventType: 'CONNECTION_TEST',
-                    orderId: 'test-' + Date.now(),
-                    customerId: 999,
-                    ...testData
-                });
-            }
+            const response = await this.callEmailSender(testData, 'test');
             
             logger.info('✅ Teste de conectividade com Azure Functions bem-sucedido', {
                 status: response.status,
                 baseUrl: this.baseUrl,
-                executionTime: response.executionTime
+                executionTime: response.executionTime,
+                hasApiKey: !!this.apiKey
             });
             
             return {
                 success: true,
                 status: response.status,
                 baseUrl: this.baseUrl,
+                endpoint: this.endpoints.emailSender,
                 hasApiKey: !!this.apiKey,
+                authMethod: this.apiKey ? 'Query string (code parameter)' : 'Anonymous',
                 response: response.data,
                 executionTime: response.executionTime
             };
@@ -193,14 +233,17 @@ class AzureFunctionsConfig {
         } catch (error) {
             logger.error('❌ Teste de conectividade com Azure Functions falhou', {
                 error: error.message,
-                baseUrl: this.baseUrl
+                baseUrl: this.baseUrl,
+                hasApiKey: !!this.apiKey
             });
             
             return {
                 success: false,
                 error: error.message,
                 baseUrl: this.baseUrl,
+                endpoint: this.endpoints.emailSender,
                 hasApiKey: !!this.apiKey,
+                authMethod: this.apiKey ? 'Query string (code parameter)' : 'Anonymous',
                 status: 'CONNECTION_FAILED'
             };
         }
@@ -211,20 +254,39 @@ class AzureFunctionsConfig {
      */
     async healthCheck() {
         try {
-            // Tentar uma requisição simples para verificar se está rodando
-            const response = await axios.get(`${this.baseUrl}`, { timeout: 5000 });
+            // Tentar uma requisição GET simples para verificar se está rodando
+            const url = `${this.baseUrl}${this.endpoints.emailSender}`;
+            const params = this.apiKey ? { code: this.apiKey } : {};
+            
+            const response = await axios.get(url, { 
+                timeout: 5000,
+                params
+            });
             
             return {
                 available: true,
                 status: response.status,
-                baseUrl: this.baseUrl
+                baseUrl: this.baseUrl,
+                endpoint: this.endpoints.emailSender
             };
             
         } catch (error) {
+            // Se 405 (Method Not Allowed), significa que está rodando mas só aceita POST
+            if (error.response?.status === 405) {
+                return {
+                    available: true,
+                    status: 'running',
+                    baseUrl: this.baseUrl,
+                    endpoint: this.endpoints.emailSender,
+                    note: 'Function App rodando (GET não permitido, apenas POST)'
+                };
+            }
+            
             return {
                 available: false,
                 error: error.message,
                 baseUrl: this.baseUrl,
+                endpoint: this.endpoints.emailSender,
                 status: error.response?.status || 'UNAVAILABLE'
             };
         }
@@ -236,9 +298,10 @@ class AzureFunctionsConfig {
     getConfig() {
         return {
             baseUrl: this.baseUrl,
+            endpoint: this.endpoints.emailSender,
             hasApiKey: !!this.apiKey,
-            timeout: this.timeout,
-            endpoints: this.endpoints
+            authMethod: this.apiKey ? 'Query string (code parameter)' : 'Anonymous',
+            timeout: this.timeout
         };
     }
     
@@ -253,11 +316,6 @@ class AzureFunctionsConfig {
         
         if (newConfig.apiKey !== undefined) {
             this.apiKey = newConfig.apiKey;
-            if (this.apiKey) {
-                this.client.defaults.headers['x-functions-key'] = this.apiKey;
-            } else {
-                delete this.client.defaults.headers['x-functions-key'];
-            }
         }
         
         if (newConfig.timeout) {
@@ -266,21 +324,6 @@ class AzureFunctionsConfig {
         }
         
         logger.info('🔧 Configuração do Azure Functions atualizada', this.getConfig());
-    }
-
-    /**
-     * Adicionar novo endpoint dinamicamente
-     */
-    addEndpoint(name, path) {
-        this.endpoints[name] = path;
-        logger.info(`🔗 Novo endpoint adicionado: ${name} -> ${path}`);
-    }
-
-    /**
-     * Listar todos os endpoints disponíveis
-     */
-    listEndpoints() {
-        return Object.keys(this.endpoints);
     }
 }
 

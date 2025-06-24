@@ -2,15 +2,16 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-require('dotenv').config();
+
+// Não usar dotenv - apenas variáveis do Docker
+// require('dotenv').config(); // ❌ Removido
 
 const logger = require('./utils/logger');
 const rabbitmqConfig = require('./config/rabbitmq');
+const dependencyContainer = require('./utils/dependency-injection');
 const notificationController = require('./controllers/notification.controller');
-
-// Importar listeners
-const orderListener = require('./listeners/order.listener');
-const campaignListener = require('./listeners/campaign.listener');
+const emailQueueListener = require('./listeners/email-queue.listener');
+const pushQueueListener = require('./listeners/push-queue.listener');
 
 class NotificationService {
     constructor() {
@@ -18,20 +19,25 @@ class NotificationService {
         this.port = process.env.PORT || 3001;
         this.isShuttingDown = false;
         
+        this.setupDependencies();
         this.setupMiddlewares();
         this.setupRoutes();
         this.setupGracefulShutdown();
     }
 
+    setupDependencies() {
+        // Inicializar container de dependências
+        dependencyContainer.initialize();
+        logger.info('📦 Dependências inicializadas');
+    }
+
     setupMiddlewares() {
-        // Segurança e logs
         this.app.use(helmet());
         this.app.use(cors());
         this.app.use(morgan('combined', { 
             stream: { write: (message) => logger.info(message.trim()) }
         }));
         
-        // Parse JSON
         this.app.use(express.json({ limit: '10mb' }));
         this.app.use(express.urlencoded({ extended: true }));
     }
@@ -44,7 +50,11 @@ class NotificationService {
                 service: 'notification-service',
                 timestamp: new Date().toISOString(),
                 uptime: process.uptime(),
-                environment: process.env.NODE_ENV || 'development'
+                environment: process.env.NODE_ENV || 'development',
+                providers: {
+                    email: process.env.EMAIL_PROVIDER || 'local',
+                    push: process.env.PUSH_PROVIDER || 'local'
+                }
             });
         });
 
@@ -74,15 +84,12 @@ class NotificationService {
         try {
             logger.info('🐰 Conectando ao RabbitMQ...');
             
-            // Inicializar conexão RabbitMQ
             await rabbitmqConfig.connect();
-            
-            // Configurar filas e exchanges
             await rabbitmqConfig.setupQueuesAndExchanges();
             
-            // Inicializar listeners
-            await orderListener.start();
-            await campaignListener.start();
+            // Inicializar listeners das filas
+            await emailQueueListener.start();
+            await pushQueueListener.start();
             
             logger.info('✅ RabbitMQ configurado e listeners iniciados');
         } catch (error) {
@@ -99,14 +106,12 @@ class NotificationService {
             logger.info(`📴 Recebido signal ${signal}. Iniciando graceful shutdown...`);
             
             try {
-                // Parar de aceitar novas conexões
                 this.server.close(() => {
                     logger.info('🌐 Servidor HTTP fechado');
                 });
 
-                // Fechar conexões RabbitMQ
-                await orderListener.stop();
-                await campaignListener.stop();
+                await emailQueueListener.stop();
+                await pushQueueListener.stop();
                 await rabbitmqConfig.disconnect();
                 
                 logger.info('✅ Graceful shutdown concluído');
@@ -119,19 +124,18 @@ class NotificationService {
 
         process.on('SIGTERM', () => shutdown('SIGTERM'));
         process.on('SIGINT', () => shutdown('SIGINT'));
-        process.on('SIGUSR2', () => shutdown('SIGUSR2')); // nodemon restart
+        process.on('SIGUSR2', () => shutdown('SIGUSR2'));
     }
 
     async start() {
         try {
-            // Conectar ao RabbitMQ primeiro
             await this.setupRabbitMQ();
             
-            // Iniciar servidor HTTP
             this.server = this.app.listen(this.port, () => {
                 logger.info(`🚀 Notification Service iniciado na porta ${this.port}`);
                 logger.info(`📍 Health check: http://localhost:${this.port}/health`);
                 logger.info(`🔗 API base: http://localhost:${this.port}/api/notifications`);
+                logger.info(`⚙️ Providers: Email=${process.env.EMAIL_PROVIDER || 'local'}, Push=${process.env.PUSH_PROVIDER || 'local'}`);
             });
 
         } catch (error) {
@@ -141,7 +145,6 @@ class NotificationService {
     }
 }
 
-// Inicializar aplicação
 const service = new NotificationService();
 service.start().catch(error => {
     logger.error('❌ Falha crítica na inicialização:', error);

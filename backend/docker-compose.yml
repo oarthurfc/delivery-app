@@ -175,7 +175,7 @@ services:
       "
 
   # ========================================
-  # NOTIFICATION SERVICE (NOVO)
+  # NOTIFICATION SERVICE (LIMPO - USA .ENV)
   # ========================================
   notification-service:
     build:
@@ -183,34 +183,67 @@ services:
       dockerfile: Dockerfile
     container_name: notification_service
     environment:
-      - NODE_ENV=production
+      # Configurações básicas da aplicação
+      - NODE_ENV=development
       - PORT=3001
+      - LOG_LEVEL=${NOTIFICATION_LOG_LEVEL}
+      
+      # RabbitMQ (conexão interna)
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
       - RABBITMQ_USERNAME=${RABBITMQ_USER}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
-      - AZURE_FUNCTIONS_BASE_URL=http://host.docker.internal:7071
-      - AZURE_FUNCTIONS_API_KEY=
-      - LOG_LEVEL=info
+      - RABBITMQ_VHOST=/
+      
+      # Provedores (do .env)
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER}
+      - PUSH_PROVIDER=${PUSH_PROVIDER}
+      
+      # Azure Functions (do .env)
+      - AZURE_FUNCTIONS_BASE_URL=${AZURE_FUNCTIONS_BASE_URL}
+      - AZURE_FUNCTIONS_API_KEY=${AZURE_FUNCTIONS_API_KEY}
+      - AZURE_FUNCTIONS_TIMEOUT=${AZURE_FUNCTIONS_TIMEOUT}
+      
+      # Email settings (do .env)
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME}
+      - EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS}
+    
     ports:
-      - "3001:3001"
+      - "${NOTIFICATION_SERVICE_PORT}:3001"
+    
     networks:
       - message_bus
       - frontend
+    
     depends_on:
       rabbitmq:
         condition: service_healthy
+    
     restart: unless-stopped
+    
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
       interval: 20s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 30s
+    
     volumes:
       - ./notification-service/logs:/app/logs
+    
+    command: >
+      sh -c "
+        echo '🔔 Notification Service iniciando...' &&
+        echo 'Aguardando RabbitMQ estar pronto...' &&
+        while ! nc -z rabbitmq 5672; do
+          sleep 2
+        done &&
+        echo '✅ RabbitMQ pronto! Iniciando serviço...' &&
+        npm start
+      "
 
   api-gateway:
     build:
