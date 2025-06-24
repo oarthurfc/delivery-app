@@ -164,7 +164,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
-    # Script para aguardar o banco estar pronto
     command: >
       sh -c "
         echo 'Aguardando PostgreSQL estar pronto...' &&
@@ -175,6 +174,44 @@ services:
         npm start
       "
 
+  # ========================================
+  # NOTIFICATION SERVICE (NOVO)
+  # ========================================
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification_service
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - AZURE_FUNCTIONS_BASE_URL=http://host.docker.internal:7071
+      - AZURE_FUNCTIONS_API_KEY=
+      - LOG_LEVEL=info
+    ports:
+      - "3001:3001"
+    networks:
+      - message_bus
+      - frontend
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    volumes:
+      - ./notification-service/logs:/app/logs
+
   api-gateway:
     build:
       context: ./api-gateway
@@ -184,6 +221,7 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:${AUTH_SERVICE_PORT}
       - ORDER_SERVICE_URL=http://order-service:${ORDER_SERVICE_PORT}
       - TRACKING_SERVICE_URL=http://tracking-service:${TRACKING_SERVICE_PORT}
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3001
     networks:
       - frontend
     ports:
@@ -192,8 +230,9 @@ services:
       - auth-service
       - order-service
       - tracking-service
+      - notification-service
 
 volumes:
   postgres_data:
-  tracking_postgres_data:  # Volume específico para tracking
+  tracking_postgres_data:
   mongodb_data:
