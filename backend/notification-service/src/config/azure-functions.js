@@ -12,6 +12,7 @@ class AzureFunctionsConfig {
             processOrderCompleted: '/api/ProcessOrderCompleted',
             processOrderCreated: '/api/ProcessOrderCreated',
             sendPromotionalCampaign: '/api/SendPromotionalCampaign',
+            sendCustomEmail: '/api/SendCustomEmail',
             testConnection: '/api/TestEmail'
         };
         
@@ -85,15 +86,21 @@ class AzureFunctionsConfig {
     }
     
     /**
-     * Chamar endpoint de pedido finalizado
+     * Método genérico para chamar qualquer endpoint
      */
-    async callProcessOrderCompleted(orderData) {
+    async callEndpoint(endpointName, data, options = {}) {
         try {
-            logger.info(`📞 Chamando Azure Function: ProcessOrderCompleted`, {
-                orderId: orderData.orderId
+            const endpoint = this.endpoints[endpointName];
+            if (!endpoint) {
+                throw new Error(`Endpoint '${endpointName}' não encontrado`);
+            }
+
+            logger.info(`📞 Chamando Azure Function: ${endpointName}`, {
+                endpoint,
+                dataKeys: Object.keys(data || {})
             });
             
-            const response = await this.client.post(this.endpoints.processOrderCompleted, orderData);
+            const response = await this.client.post(endpoint, data, options);
             
             return {
                 success: true,
@@ -103,73 +110,42 @@ class AzureFunctionsConfig {
             };
             
         } catch (error) {
-            logger.error(`❌ Falha em ProcessOrderCompleted:`, {
-                orderId: orderData.orderId,
+            logger.error(`❌ Falha em ${endpointName}:`, {
+                endpoint: endpointName,
                 error: error.message,
                 status: error.response?.status
             });
             
-            throw new Error(`Azure Function ProcessOrderCompleted falhou: ${error.message}`);
+            throw new Error(`Azure Function ${endpointName} falhou: ${error.message}`);
         }
+    }
+    
+    /**
+     * Chamar endpoint de pedido finalizado
+     */
+    async callProcessOrderCompleted(orderData) {
+        return this.callEndpoint('processOrderCompleted', orderData);
     }
     
     /**
      * Chamar endpoint de pedido criado
      */
     async callProcessOrderCreated(orderData) {
-        try {
-            logger.info(`📞 Chamando Azure Function: ProcessOrderCreated`, {
-                orderId: orderData.orderId
-            });
-            
-            const response = await this.client.post(this.endpoints.processOrderCreated, orderData);
-            
-            return {
-                success: true,
-                data: response.data,
-                status: response.status,
-                executionTime: response.headers['x-ms-execution-time-ms']
-            };
-            
-        } catch (error) {
-            logger.error(`❌ Falha em ProcessOrderCreated:`, {
-                orderId: orderData.orderId,
-                error: error.message,
-                status: error.response?.status
-            });
-            
-            throw new Error(`Azure Function ProcessOrderCreated falhou: ${error.message}`);
-        }
+        return this.callEndpoint('processOrderCreated', orderData);
     }
     
     /**
      * Chamar endpoint de campanha promocional
      */
     async callSendPromotionalCampaign(campaignData) {
-        try {
-            logger.info(`📞 Chamando Azure Function: SendPromotionalCampaign`, {
-                campaignId: campaignData.campaignId,
-                title: campaignData.title
-            });
-            
-            const response = await this.client.post(this.endpoints.sendPromotionalCampaign, campaignData);
-            
-            return {
-                success: true,
-                data: response.data,
-                status: response.status,
-                executionTime: response.headers['x-ms-execution-time-ms']
-            };
-            
-        } catch (error) {
-            logger.error(`❌ Falha em SendPromotionalCampaign:`, {
-                campaignId: campaignData.campaignId,
-                error: error.message,
-                status: error.response?.status
-            });
-            
-            throw new Error(`Azure Function SendPromotionalCampaign falhou: ${error.message}`);
-        }
+        return this.callEndpoint('sendPromotionalCampaign', campaignData);
+    }
+
+    /**
+     * Chamar endpoint de email customizado
+     */
+    async callSendCustomEmail(emailData) {
+        return this.callEndpoint('sendCustomEmail', emailData);
     }
     
     /**
@@ -188,10 +164,10 @@ class AzureFunctionsConfig {
             // Tentar endpoint de teste primeiro
             let response;
             try {
-                response = await this.client.post(this.endpoints.testConnection, testData);
+                response = await this.callEndpoint('testConnection', testData);
             } catch (testError) {
                 // Se endpoint de teste não existir, usar ProcessOrderCreated
-                response = await this.client.post(this.endpoints.processOrderCreated, {
+                response = await this.callEndpoint('processOrderCreated', {
                     eventType: 'CONNECTION_TEST',
                     orderId: 'test-' + Date.now(),
                     customerId: 999,
@@ -202,7 +178,7 @@ class AzureFunctionsConfig {
             logger.info('✅ Teste de conectividade com Azure Functions bem-sucedido', {
                 status: response.status,
                 baseUrl: this.baseUrl,
-                executionTime: response.headers['x-ms-execution-time-ms']
+                executionTime: response.executionTime
             });
             
             return {
@@ -211,14 +187,13 @@ class AzureFunctionsConfig {
                 baseUrl: this.baseUrl,
                 hasApiKey: !!this.apiKey,
                 response: response.data,
-                executionTime: response.headers['x-ms-execution-time-ms']
+                executionTime: response.executionTime
             };
             
         } catch (error) {
             logger.error('❌ Teste de conectividade com Azure Functions falhou', {
                 error: error.message,
-                baseUrl: this.baseUrl,
-                status: error.response?.status
+                baseUrl: this.baseUrl
             });
             
             return {
@@ -226,7 +201,7 @@ class AzureFunctionsConfig {
                 error: error.message,
                 baseUrl: this.baseUrl,
                 hasApiKey: !!this.apiKey,
-                status: error.response?.status || 'CONNECTION_FAILED'
+                status: 'CONNECTION_FAILED'
             };
         }
     }
@@ -291,6 +266,21 @@ class AzureFunctionsConfig {
         }
         
         logger.info('🔧 Configuração do Azure Functions atualizada', this.getConfig());
+    }
+
+    /**
+     * Adicionar novo endpoint dinamicamente
+     */
+    addEndpoint(name, path) {
+        this.endpoints[name] = path;
+        logger.info(`🔗 Novo endpoint adicionado: ${name} -> ${path}`);
+    }
+
+    /**
+     * Listar todos os endpoints disponíveis
+     */
+    listEndpoints() {
+        return Object.keys(this.endpoints);
     }
 }
 

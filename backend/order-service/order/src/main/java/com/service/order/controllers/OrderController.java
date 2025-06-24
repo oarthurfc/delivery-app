@@ -74,4 +74,12 @@ public class OrderController {
         log.info("Recebida requisição para buscar pedidos paginados do motorista ID {}", driverId);
         return ResponseEntity.ok(orderService.getOrdersByDriverId(driverId, pageable));
     }
+
+    @PutMapping("/{id}/complete")
+    public ResponseEntity<OrderResponseDTO> complete(
+            @PathVariable Long id,
+            @RequestParam("imageUrl") String imageUrl) {
+        log.info("Recebida requisição para finalizar pedido ID {}", id);
+        return ResponseEntity.ok(orderService.completeOrder(id, imageUrl));
+    }
 }

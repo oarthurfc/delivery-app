@@ -1,11 +1,10 @@
-const httpClient = require('../utils/http-client');
+const azureFunctionsConfig = require('../config/azure-functions');
 const logger = require('../utils/logger');
 
 class EmailService {
     constructor() {
-        this.azureFunctionsBaseUrl = process.env.AZURE_FUNCTIONS_BASE_URL || 'http://localhost:7071';
-        this.azureFunctionsApiKey = process.env.AZURE_FUNCTIONS_API_KEY || '';
-        this.timeout = parseInt(process.env.AZURE_FUNCTIONS_TIMEOUT) || 30000;
+        // Usar a configuração centralizada do Azure Functions
+        this.azureFunctions = azureFunctionsConfig;
     }
 
     /**
@@ -15,33 +14,25 @@ class EmailService {
         try {
             logger.info(`📧 Processando emails para pedido finalizado: ${orderData.orderId}`);
             
-            const response = await httpClient.post(
-                `${this.azureFunctionsBaseUrl}/api/ProcessOrderCompleted`,
-                orderData,
-                {
-                    headers: this.getHeaders(),
-                    timeout: this.timeout
-                }
-            );
-
+            const result = await this.azureFunctions.callProcessOrderCompleted(orderData);
+            
             logger.info(`✅ Emails de pedido finalizado enviados: ${orderData.orderId}`, {
                 orderId: orderData.orderId,
-                response: response.data
+                executionTime: result.executionTime
             });
 
             return {
                 success: true,
                 orderId: orderData.orderId,
                 type: 'order_completed',
-                result: response.data
+                result: result.data,
+                executionTime: result.executionTime
             };
 
         } catch (error) {
             logger.error(`❌ Erro ao processar emails de pedido finalizado: ${orderData.orderId}`, {
                 error: error.message,
-                orderId: orderData.orderId,
-                status: error.response?.status,
-                statusText: error.response?.statusText
+                orderId: orderData.orderId
             });
 
             throw new Error(`Falha no envio de emails para pedido ${orderData.orderId}: ${error.message}`);
@@ -55,33 +46,25 @@ class EmailService {
         try {
             logger.info(`📧 Processando email de confirmação para pedido: ${orderData.orderId}`);
             
-            const response = await httpClient.post(
-                `${this.azureFunctionsBaseUrl}/api/ProcessOrderCreated`,
-                orderData,
-                {
-                    headers: this.getHeaders(),
-                    timeout: this.timeout
-                }
-            );
-
+            const result = await this.azureFunctions.callProcessOrderCreated(orderData);
+            
             logger.info(`✅ Email de confirmação enviado: ${orderData.orderId}`, {
                 orderId: orderData.orderId,
-                response: response.data
+                executionTime: result.executionTime
             });
 
             return {
                 success: true,
                 orderId: orderData.orderId,
                 type: 'order_created',
-                result: response.data
+                result: result.data,
+                executionTime: result.executionTime
             };
 
         } catch (error) {
             logger.error(`❌ Erro ao processar email de confirmação: ${orderData.orderId}`, {
                 error: error.message,
-                orderId: orderData.orderId,
-                status: error.response?.status,
-                statusText: error.response?.statusText
+                orderId: orderData.orderId
             });
 
             throw new Error(`Falha no envio de email de confirmação para pedido ${orderData.orderId}: ${error.message}`);
@@ -95,18 +78,11 @@ class EmailService {
         try {
             logger.info(`📧 Enviando campanha promocional: ${campaignData.title}`);
             
-            const response = await httpClient.post(
-                `${this.azureFunctionsBaseUrl}/api/SendPromotionalCampaign`,
-                campaignData,
-                {
-                    headers: this.getHeaders(),
-                    timeout: this.timeout
-                }
-            );
-
+            const result = await this.azureFunctions.callSendPromotionalCampaign(campaignData);
+            
             logger.info(`✅ Campanha promocional enviada: ${campaignData.title}`, {
                 campaign: campaignData.title,
-                response: response.data
+                executionTime: result.executionTime
             });
 
             return {
@@ -114,15 +90,14 @@ class EmailService {
                 campaignId: campaignData.campaignId,
                 title: campaignData.title,
                 type: 'promotional_campaign',
-                result: response.data
+                result: result.data,
+                executionTime: result.executionTime
             };
 
         } catch (error) {
             logger.error(`❌ Erro ao enviar campanha promocional: ${campaignData.title}`, {
                 error: error.message,
-                campaign: campaignData.title,
-                status: error.response?.status,
-                statusText: error.response?.statusText
+                campaign: campaignData.title
             });
 
             throw new Error(`Falha no envio da campanha ${campaignData.title}: ${error.message}`);
@@ -134,82 +109,40 @@ class EmailService {
      */
     async testConnection() {
         try {
-            logger.info('🧪 Testando conexão com Azure Functions...');
+            logger.info('🧪 Testando conexão com Azure Functions via EmailService...');
             
-            const testData = {
-                test: true,
-                timestamp: new Date().toISOString(),
-                service: 'notification-service'
-            };
+            const result = await this.azureFunctions.testConnection();
+            
+            if (result.success) {
+                logger.info('✅ Teste de conexão EmailService bem-sucedido');
+            } else {
+                logger.warn('⚠️ Teste de conexão EmailService retornou falha');
+            }
 
-            const response = await httpClient.post(
-                `${this.azureFunctionsBaseUrl}/api/ProcessOrderCreated`,
-                {
-                    eventType: 'CONNECTION_TEST',
-                    orderId: 'test-' + Date.now(),
-                    customerId: 999,
-                    ...testData
-                },
-                {
-                    headers: this.getHeaders(),
-                    timeout: 10000
-                }
-            );
-
-            logger.info('✅ Conexão com Azure Functions testada com sucesso', {
-                status: response.status,
-                baseUrl: this.azureFunctionsBaseUrl
-            });
-
-            return {
-                success: true,
-                status: response.status,
-                baseUrl: this.azureFunctionsBaseUrl,
-                response: response.data
-            };
+            return result;
 
         } catch (error) {
-            logger.error('❌ Teste de conexão com Azure Functions falhou', {
-                error: error.message,
-                baseUrl: this.azureFunctionsBaseUrl,
-                status: error.response?.status
+            logger.error('❌ Teste de conexão EmailService falhou', {
+                error: error.message
             });
 
             return {
                 success: false,
                 error: error.message,
-                baseUrl: this.azureFunctionsBaseUrl,
-                status: error.response?.status
+                service: 'email'
             };
         }
     }
 
     /**
-     * Enviar email customizado (para uso futuro)
+     * Enviar email customizado (implementação futura)
      */
     async sendCustomEmail(emailData) {
         try {
             logger.info(`📧 Enviando email customizado para: ${emailData.to}`);
             
-            // Para emails customizados, pode usar uma função genérica
-            const response = await httpClient.post(
-                `${this.azureFunctionsBaseUrl}/api/SendCustomEmail`,
-                emailData,
-                {
-                    headers: this.getHeaders(),
-                    timeout: this.timeout
-                }
-            );
-
-            logger.info(`✅ Email customizado enviado para: ${emailData.to}`);
-
-            return {
-                success: true,
-                to: emailData.to,
-                subject: emailData.subject,
-                type: 'custom_email',
-                result: response.data
-            };
+            // Por enquanto, usar endpoint genérico ou lançar erro
+            throw new Error('Endpoint SendCustomEmail não implementado nas Azure Functions ainda');
 
         } catch (error) {
             logger.error(`❌ Erro ao enviar email customizado para: ${emailData.to}`, {
@@ -223,32 +156,49 @@ class EmailService {
     }
 
     /**
-     * Obter headers para requisições às Azure Functions
+     * Verificar se Azure Functions estão disponíveis
      */
-    getHeaders() {
-        const headers = {
-            'Content-Type': 'application/json',
-            'User-Agent': 'notification-service/1.0.0'
-        };
-
-        if (this.azureFunctionsApiKey) {
-            headers['x-functions-key'] = this.azureFunctionsApiKey;
+    async isAvailable() {
+        try {
+            const healthCheck = await this.azureFunctions.healthCheck();
+            return healthCheck.available;
+        } catch (error) {
+            logger.error('❌ Erro ao verificar disponibilidade das Azure Functions:', error);
+            return false;
         }
-
-        return headers;
     }
 
     /**
      * Obter estatísticas do serviço
      */
     getStats() {
+        const azureConfig = this.azureFunctions.getConfig();
+        
         return {
             service: 'email',
-            baseUrl: this.azureFunctionsBaseUrl,
-            hasApiKey: !!this.azureFunctionsApiKey,
-            timeout: this.timeout,
+            azureFunctions: {
+                baseUrl: azureConfig.baseUrl,
+                hasApiKey: azureConfig.hasApiKey,
+                timeout: azureConfig.timeout,
+                endpoints: Object.keys(azureConfig.endpoints)
+            },
             environment: process.env.NODE_ENV || 'development'
         };
+    }
+
+    /**
+     * Atualizar configurações das Azure Functions
+     */
+    updateAzureFunctionsConfig(newConfig) {
+        logger.info('🔧 Atualizando configuração das Azure Functions via EmailService');
+        this.azureFunctions.updateConfig(newConfig);
+    }
+
+    /**
+     * Obter configuração atual das Azure Functions
+     */
+    getAzureFunctionsConfig() {
+        return this.azureFunctions.getConfig();
     }
 }
 

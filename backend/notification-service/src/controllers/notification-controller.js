@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const notificationService = require('../services/notification.service');
-const emailService = require('../services/email.service');
-const pushService = require('../services/push.service');
-const orderListener = require('../listeners/order.listener');
-const campaignListener = require('../listeners/campaign.listener');
+const notificationService = require('../services/notification-service');
+const emailService = require('../services/email-service');
+const pushService = require('../services/push-service');
+const orderListener = require('../listeners/order-listener');
+const campaignListener = require('../listeners/campaign-listener');
 const rabbitmqConfig = require('../config/rabbitmq');
 const logger = require('../utils/logger');
 
