@@ -10,8 +10,8 @@ const logger = require('./utils/logger');
 const rabbitmqConfig = require('./config/rabbitmq');
 const dependencyContainer = require('./utils/dependency-injection');
 const notificationController = require('./controllers/notification.controller');
-const emailQueueListener = require('./listeners/email-queue.listener');
-const pushQueueListener = require('./listeners/push-queue.listener');
+const emailQueueListener = require('./listeners/email-queue-listener');
+const pushQueueListener = require('./listeners/push-queue-listener');
 
 class NotificationService {
     constructor() {

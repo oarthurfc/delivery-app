@@ -2,10 +2,10 @@
 const logger = require('./logger');
 
 // Provedores
-const LocalEmailProvider = require('../providers/email/local-email.provider');
-const AzureEmailProvider = require('../providers/email/azure-email.provider');
-const LocalPushProvider = require('../providers/push/local-push.provider');
-const AzurePushProvider = require('../providers/push/azure-push.provider');
+const LocalEmailProvider = require('../providers/email/local-email-provider');
+const AzureEmailProvider = require('../providers/email/azure-email-provider');
+const LocalPushProvider = require('../providers/push/local-push-provider');
+const AzurePushProvider = require('../providers/push/azure-push-provider');
 
 class DependencyContainer {
     constructor() {

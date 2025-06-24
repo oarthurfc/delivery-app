@@ -1,5 +1,5 @@
 // providers/email/local-email.provider.js
-const EmailProviderInterface = require('../../interfaces/email-provider.interface');
+const EmailProviderInterface = require('../../interfaces/email-provider-interface');
 const logger = require('../../utils/logger');
 
 class LocalEmailProvider extends EmailProviderInterface {

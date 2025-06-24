@@ -1,5 +1,5 @@
 // providers/push/local-push.provider.js
-const PushProviderInterface = require('../../interfaces/push-provider.interface');
+const PushProviderInterface = require('../../interfaces/push-provider-interface');
 const logger = require('../../utils/logger');
 
 class LocalPushProvider extends PushProviderInterface {

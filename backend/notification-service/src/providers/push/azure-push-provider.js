@@ -1,5 +1,5 @@
 // providers/push/azure-push.provider.js
-const PushProviderInterface = require('../../interfaces/push-provider.interface');
+const PushProviderInterface = require('../../interfaces/push-provider-interface');
 const azureFunctionsConfig = require('../../config/azure-functions');
 const logger = require('../../utils/logger');
 

@@ -1,5 +1,5 @@
 // providers/email/azure-email.provider.js
-const EmailProviderInterface = require('../../interfaces/email-provider.interface');
+const EmailProviderInterface = require('../../interfaces/email-provider-interface');
 const azureFunctionsConfig = require('../../config/azure-functions');
 const logger = require('../../utils/logger');
 

@@ -184,7 +184,7 @@ services:
     container_name: notification_service
     environment:
       # Configurações básicas da aplicação
-      - NODE_ENV=development
+      - NODE_ENV=production
       - PORT=3001
       - LOG_LEVEL=${NOTIFICATION_LOG_LEVEL}
       
