@@ -8,15 +8,10 @@
   },
   "dependencies": {
     "@azure/functions": "^4.0.0",
-<<<<<<< HEAD
-    "@sendgrid/mail": "^8.0.0"
-  }
-}
-=======
+    "@sendgrid/mail": "^8.0.0",
+    "firebase-admin": "^13.4.0",
     "googleapis": "^128.0.0",
     "google-auth-library": "^9.0.0"
   },
-  "devDependencies": {},
-  "main": "src/{index.js,functions/*.js}"
+  "devDependencies": {}
 }
->>>>>>> ceee57d68cc2d77842b1f62a80fda25c41d8ff61
