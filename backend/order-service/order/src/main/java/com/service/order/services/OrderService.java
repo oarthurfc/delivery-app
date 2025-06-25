@@ -70,12 +70,18 @@ public class OrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado com ID: " + id));
 
-        if (dto.getDriverId() != null) order.setDriverId(dto.getDriverId());
-        if (dto.getStatus() != null) order.setStatus(dto.getStatus());
-        if (dto.getOriginAddress() != null) order.setOriginAddress(toAddress(dto.getOriginAddress()));
-        if (dto.getDestinationAddress() != null) order.setDestinationAddress(toAddress(dto.getDestinationAddress()));
-        if (dto.getDescription() != null) order.setDescription(dto.getDescription());
-        if (dto.getImageUrl() != null) order.setImageUrl(dto.getImageUrl());
+        if (dto.getDriverId() != null)
+            order.setDriverId(dto.getDriverId());
+        if (dto.getStatus() != null)
+            order.setStatus(dto.getStatus());
+        if (dto.getOriginAddress() != null)
+            order.setOriginAddress(toAddress(dto.getOriginAddress()));
+        if (dto.getDestinationAddress() != null)
+            order.setDestinationAddress(toAddress(dto.getDestinationAddress()));
+        if (dto.getDescription() != null)
+            order.setDescription(dto.getDescription());
+        if (dto.getImageUrl() != null)
+            order.setImageUrl(dto.getImageUrl());
 
         Order updated = orderRepository.save(order);
         return toDTO(updated);
@@ -99,14 +105,16 @@ public class OrderService {
     public Page<OrderResponseDTO> getOrdersByDriverId(Long driverId, Pageable pageable) {
         log.info("Buscando pedidos do motorista com ID {} (paginado)", driverId);
         Page<Order> ordersPage = orderRepository.findByDriverId(driverId, pageable);
-        
+
         List<OrderResponseDTO> dtos = ordersPage
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
 
         return new PageImpl<>(dtos, pageable, ordersPage.getTotalElements());
-    }    public OrderResponseDTO completeOrder(Long id, String imageUrl) {
+    }
+
+    public OrderResponseDTO completeOrder(Long id, String imageUrl) {
         log.info("Finalizando pedido com ID {}", id);
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado com ID: " + id));
@@ -121,25 +129,25 @@ public class OrderService {
 
         // Publicar evento de finalização
         // eventPublisher.publishOrderCompleted(completed);
-        
+
         // Buscar email do cliente no serviço de autenticação
         String customerEmail = getCustomerEmail(completed.getCustomerId());
         String motoristaEmail = getCustomerEmail(completed.getDriverId());
-        
+
         // Publicar notificação de email
         if (customerEmail != null && !customerEmail.isEmpty()) {
             eventPublisher.publishEmailNotification(completed, customerEmail);
             eventPublisher.publishEmailNotification(completed, motoristaEmail);
-            log.info("Notificação de email enviada para cliente ID: {}, Email: {}", 
-                     completed.getCustomerId(), customerEmail);
+            log.info("Notificação de email enviada para cliente ID: {}, Email: {}",
+                    completed.getCustomerId(), customerEmail);
         } else {
-            log.warn("Não foi possível enviar notificação de email para cliente ID: {}, email não encontrado", 
-                     completed.getCustomerId());
+            log.warn("Não foi possível enviar notificação de email para cliente ID: {}, email não encontrado",
+                    completed.getCustomerId());
         }
-        
+
         return toDTO(completed);
     }
-    
+
     /**
      * Busca o email do cliente no serviço de autenticação
      * Este método pode ser implementado utilizando o auth-service
@@ -147,23 +155,23 @@ public class OrderService {
     private String getCustomerEmail(Long customerId) {
         try {
             log.info("Buscando email do cliente ID: {}", customerId);
-            
-            // Em um ambiente real, você faria uma chamada ao auth-service para obter o email
+
+            // Em um ambiente real, fariamos uma chamada ao auth-service para obter o email
             // Exemplo:
             /*
-            UserDto user = webClient.get()
-                .uri("http://auth-service/api/users/" + customerId)
-                .retrieve()
-                .bodyToMono(UserDto.class)
-                .block();
-            return user.getEmail();
-            */
-            
+             * UserDto user = webClient.get()
+             * .uri("http://auth-service/api/users/" + customerId)
+             * .retrieve()
+             * .bodyToMono(UserDto.class)
+             * .block();
+             * return user.getEmail();
+             */
+
             // Para fins de demonstração, estamos retornando um email falso
-            // IMPORTANTE: Implemente a integração real com o auth-service
-            
+            // IMPORTANTE: Implementar mais tarde a integração real com o auth-service
+
             return "cliente" + customerId + "@example.com";
-            
+
         } catch (Exception e) {
             log.error("Erro ao buscar email do cliente ID: {}", customerId, e);
             return null;
@@ -188,7 +196,8 @@ public class OrderService {
     }
 
     private AddressDTO toAddressDTO(Address address) {
-        if (address == null) return null;
+        if (address == null)
+            return null;
         AddressDTO dto = new AddressDTO();
         dto.setStreet(address.getStreet());
         dto.setNumber(address.getNumber());
@@ -200,7 +209,8 @@ public class OrderService {
     }
 
     private Address toAddress(AddressDTO dto) {
-        if (dto == null) return null;
+        if (dto == null)
+            return null;
         Address address = new Address();
         address.setStreet(dto.getStreet());
         address.setNumber(dto.getNumber());
