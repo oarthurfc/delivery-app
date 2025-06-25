@@ -106,9 +106,7 @@ public class OrderService {
                 .collect(Collectors.toList());
 
         return new PageImpl<>(dtos, pageable, ordersPage.getTotalElements());
-    }
-
-    public OrderResponseDTO completeOrder(Long id, String imageUrl) {
+    }    public OrderResponseDTO completeOrder(Long id, String imageUrl) {
         log.info("Finalizando pedido com ID {}", id);
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado com ID: " + id));
@@ -120,11 +118,56 @@ public class OrderService {
         order.setStatus(OrderStatus.DELIVERIED);
         order.setImageUrl(imageUrl);
         Order completed = orderRepository.save(order);
-        
+
         // Publicar evento de finalização
-        eventPublisher.publishOrderCompleted(completed);
+        // eventPublisher.publishOrderCompleted(completed);
+        
+        // Buscar email do cliente no serviço de autenticação
+        String customerEmail = getCustomerEmail(completed.getCustomerId());
+        String motoristaEmail = getCustomerEmail(completed.getDriverId());
+        
+        // Publicar notificação de email
+        if (customerEmail != null && !customerEmail.isEmpty()) {
+            eventPublisher.publishEmailNotification(completed, customerEmail);
+            eventPublisher.publishEmailNotification(completed, motoristaEmail);
+            log.info("Notificação de email enviada para cliente ID: {}, Email: {}", 
+                     completed.getCustomerId(), customerEmail);
+        } else {
+            log.warn("Não foi possível enviar notificação de email para cliente ID: {}, email não encontrado", 
+                     completed.getCustomerId());
+        }
         
         return toDTO(completed);
+    }
+    
+    /**
+     * Busca o email do cliente no serviço de autenticação
+     * Este método pode ser implementado utilizando o auth-service
+     */
+    private String getCustomerEmail(Long customerId) {
+        try {
+            log.info("Buscando email do cliente ID: {}", customerId);
+            
+            // Em um ambiente real, você faria uma chamada ao auth-service para obter o email
+            // Exemplo:
+            /*
+            UserDto user = webClient.get()
+                .uri("http://auth-service/api/users/" + customerId)
+                .retrieve()
+                .bodyToMono(UserDto.class)
+                .block();
+            return user.getEmail();
+            */
+            
+            // Para fins de demonstração, estamos retornando um email falso
+            // IMPORTANTE: Implemente a integração real com o auth-service
+            
+            return "cliente" + customerId + "@example.com";
+            
+        } catch (Exception e) {
+            log.error("Erro ao buscar email do cliente ID: {}", customerId, e);
+            return null;
+        }
     }
 
     // -----------------------
