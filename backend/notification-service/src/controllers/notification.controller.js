@@ -1,7 +1,7 @@
 // controllers/notification.controller.js - COM SWAGGER
 const express = require('express');
 const router = express.Router();
-const notificationService = require('../services/notification-service');
+const notificationService = require('../services/notification.service');
 const emailQueueListener = require('../listeners/email-queue-listener');
 const pushQueueListener = require('../listeners/push-queue-listener');
 const dependencyContainer = require('../utils/dependency-injection');
