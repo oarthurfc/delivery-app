@@ -1,13 +1,13 @@
-// providers/push/azure-push.provider.js
+// providers/push/azure-push-provider.js - REFATORADO
 const PushProviderInterface = require('../../interfaces/push-provider-interface');
-const azureFunctionsConfig = require('../../config/azure-functions');
+const azurePushFunctionsConfig = require('../../config/azure-push-functions');
 const logger = require('../../utils/logger');
 
 class AzurePushProvider extends PushProviderInterface {
     constructor() {
         super();
         this.name = 'azure-push-provider';
-        this.azureFunctions = azureFunctionsConfig;
+        this.azurePushFunctions = azurePushFunctionsConfig;
         this.stats = {
             sent: 0,
             broadcasts: 0,
@@ -18,111 +18,147 @@ class AzurePushProvider extends PushProviderInterface {
 
     async sendPushNotification(pushData) {
         try {
-            const userIds = Array.isArray(pushData.userId) ? pushData.userId : [pushData.userId];
-            
-            logger.info(`🔔 [AZURE] Enviando push via Azure Functions para ${userIds.length} usuário(s)`, {
-                userIds,
-                title: pushData.title
+            // Validar se tem fcmToken
+            if (!pushData.fcmToken) {
+                throw new Error('fcmToken é obrigatório para push notifications via Azure');
+            }
+
+            logger.info(`🔔 [AZURE] Enviando push notification via Azure Functions`, {
+                fcmToken: `${pushData.fcmToken.substring(0, 20)}...`,
+                title: pushData.title,
+                userId: pushData.userId
             });
 
-            // Mapear dados para formato esperado pelo Azure Functions
-            const azurePushData = this.mapToAzureFormat(pushData, userIds);
+            // Preparar dados no formato esperado pela Azure Function
+            const azurePushData = this.mapToAzureFormat(pushData);
             
-            const result = await this.azureFunctions.callEndpoint('sendPushNotification', azurePushData);
+            const result = await this.azurePushFunctions.callPushSender(azurePushData);
             
-            this.stats.sent += userIds.length;
+            this.stats.sent++;
 
             const response = {
                 success: true,
+                messageId: result.data.messageId || `azure_push_${Date.now()}`,
                 provider: this.name,
-                sent: userIds.length,
+                fcmToken: `${pushData.fcmToken.substring(0, 20)}...`,
+                title: pushData.title,
+                userId: pushData.userId,
                 sentAt: new Date().toISOString(),
                 executionTime: result.executionTime,
                 azureResponse: result.data
             };
 
-            logger.info(`✅ [AZURE] Push notifications enviadas: ${userIds.length}`);
+            logger.info(`✅ [AZURE] Push notification enviada com sucesso: ${response.messageId}`);
             return response;
 
         } catch (error) {
             this.stats.errors++;
             logger.error(`❌ [AZURE] Erro ao enviar push notification:`, {
                 error: error.message,
+                fcmToken: pushData.fcmToken ? `${pushData.fcmToken.substring(0, 20)}...` : 'not provided',
                 userId: pushData.userId
             });
-            throw new Error(`Azure Functions push failed: ${error.message}`);
+            throw new Error(`Azure Push Function failed: ${error.message}`);
         }
     }
 
     async sendBroadcast(broadcastData) {
         try {
-            logger.info(`📡 [AZURE] Enviando broadcast via Azure Functions para ${broadcastData.userIds.length} usuários`, {
+            logger.info(`📡 [AZURE] Enviando broadcast via Azure Functions para ${broadcastData.notifications.length} notifications`, {
                 title: broadcastData.title,
-                userCount: broadcastData.userIds.length
+                notificationCount: broadcastData.notifications.length
             });
 
-            const azureBroadcastData = {
-                userIds: broadcastData.userIds,
-                title: broadcastData.title,
-                body: broadcastData.body,
-                data: broadcastData.data || {},
-                type: 'broadcast'
-            };
-            
-            const result = await this.azureFunctions.callEndpoint('sendBroadcastNotification', azureBroadcastData);
-            
+            const results = [];
+            let successCount = 0;
+            let failureCount = 0;
+
+            // Enviar cada notificação individualmente
+            for (const notification of broadcastData.notifications) {
+                try {
+                    const pushData = {
+                        fcmToken: notification.fcmToken,
+                        userId: notification.userId,
+                        title: broadcastData.title,
+                        body: broadcastData.body,
+                        data: broadcastData.data || {}
+                    };
+
+                    const result = await this.sendPushNotification(pushData);
+                    results.push({
+                        userId: notification.userId,
+                        fcmToken: `${notification.fcmToken.substring(0, 20)}...`,
+                        status: 'sent',
+                        messageId: result.messageId
+                    });
+                    successCount++;
+
+                } catch (error) {
+                    results.push({
+                        userId: notification.userId,
+                        fcmToken: notification.fcmToken ? `${notification.fcmToken.substring(0, 20)}...` : 'not provided',
+                        status: 'failed',
+                        error: error.message
+                    });
+                    failureCount++;
+                }
+            }
+
             this.stats.broadcasts++;
-            this.stats.sent += broadcastData.userIds.length;
 
             const response = {
                 success: true,
                 provider: this.name,
-                totalUsers: broadcastData.userIds.length,
-                sent: result.data.sent || broadcastData.userIds.length,
-                failed: result.data.failed || 0,
-                sentAt: new Date().toISOString(),
-                executionTime: result.executionTime,
-                azureResponse: result.data
+                totalNotifications: broadcastData.notifications.length,
+                sent: successCount,
+                failed: failureCount,
+                results,
+                sentAt: new Date().toISOString()
             };
 
-            logger.info(`✅ [AZURE] Broadcast enviado com sucesso`);
+            logger.info(`✅ [AZURE] Broadcast enviado: ${successCount} enviadas, ${failureCount} falharam`);
             return response;
 
         } catch (error) {
             this.stats.errors++;
             logger.error(`❌ [AZURE] Erro ao enviar broadcast:`, error);
-            throw new Error(`Azure Functions broadcast failed: ${error.message}`);
+            throw new Error(`Azure Push Functions broadcast failed: ${error.message}`);
         }
     }
 
-    mapToAzureFormat(pushData, userIds) {
-        return {
-            userIds: userIds || [pushData.userId],
+    mapToAzureFormat(pushData) {
+        // Formato exato esperado pela Azure Function
+        const azurePayload = {
+            fcmToken: pushData.fcmToken,
             title: pushData.title,
-            body: pushData.body,
-            data: pushData.data || {},
-            deepLink: pushData.deepLink,
-            type: 'notification'
+            body: pushData.body
         };
+
+        // Adicionar dados adicionais se existirem
+        if (pushData.data && Object.keys(pushData.data).length > 0) {
+            azurePayload.data = pushData.data;
+        }
+
+        return azurePayload;
     }
 
     async testConnection() {
         try {
             logger.info('🧪 [AZURE] Testando push notifications via Azure Functions...');
             
-            const testResult = await this.azureFunctions.testConnection();
+            const testResult = await this.azurePushFunctions.testConnection();
             
             if (testResult.success) {
-                logger.info('✅ [AZURE] Azure Functions push acessível');
+                logger.info('✅ [AZURE] Azure Push Functions acessível');
                 return {
                     success: true,
                     provider: this.name,
                     status: 'connected',
-                    message: 'Azure Functions push disponível',
+                    message: 'Azure Push Functions disponível',
                     azureResult: testResult
                 };
             } else {
-                logger.warn('⚠️ [AZURE] Azure Functions push não acessível');
+                logger.warn('⚠️ [AZURE] Azure Push Functions não acessível');
                 return {
                     success: false,
                     provider: this.name,
@@ -143,13 +179,14 @@ class AzurePushProvider extends PushProviderInterface {
     }
 
     getConfig() {
-        const azureConfig = this.azureFunctions.getConfig();
+        const azureConfig = this.azurePushFunctions.getConfig();
         return {
             provider: this.name,
-            type: 'azure-functions',
+            type: 'azure-push-functions',
             stats: this.stats,
             azure: {
                 baseUrl: azureConfig.baseUrl,
+                endpoint: azureConfig.endpoint,
                 hasApiKey: azureConfig.hasApiKey,
                 timeout: azureConfig.timeout
             }
@@ -161,4 +198,7 @@ class AzurePushProvider extends PushProviderInterface {
             ...this.stats,
             uptime: Date.now() - this.stats.startTime.getTime()
         };
-    }}
+    }
+}
+
+module.exports = AzurePushProvider;

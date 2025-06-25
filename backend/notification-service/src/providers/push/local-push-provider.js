@@ -1,4 +1,3 @@
-// providers/push/local-push.provider.js
 const PushProviderInterface = require('../../interfaces/push-provider-interface');
 const logger = require('../../utils/logger');
 
@@ -16,30 +15,20 @@ class LocalPushProvider extends PushProviderInterface {
 
     async sendPushNotification(pushData) {
         try {
-            const userIds = Array.isArray(pushData.userId) ? pushData.userId : [pushData.userId];
-            
-            logger.info(`🔔 [LOCAL] Enviando push notification para ${userIds.length} usuário(s)`, {
-                userIds,
+            logger.info(`🔔 [LOCAL] Enviando push notification`, {
+                userId: pushData.userId,
+                fcmToken: pushData.fcmToken ? `${pushData.fcmToken.substring(0, 20)}...` : 'not provided',
                 title: pushData.title
             });
 
-            const results = [];
-            
-            for (const userId of userIds) {
-                const result = await this.sendSingleNotification({
-                    ...pushData,
-                    userId
-                });
-                results.push(result);
-            }
-
-            this.stats.sent += results.length;
+            const result = await this.sendSingleNotification(pushData);
+            this.stats.sent++;
 
             return {
                 success: true,
                 provider: this.name,
-                sent: results.length,
-                results,
+                sent: 1,
+                result,
                 sentAt: new Date().toISOString()
             };
 
@@ -47,7 +36,8 @@ class LocalPushProvider extends PushProviderInterface {
             this.stats.errors++;
             logger.error(`❌ [LOCAL] Erro ao enviar push notification:`, {
                 error: error.message,
-                userId: pushData.userId
+                userId: pushData.userId,
+                fcmToken: pushData.fcmToken ? `${pushData.fcmToken.substring(0, 20)}...` : 'not provided'
             });
             throw error;
         }
@@ -59,47 +49,66 @@ class LocalPushProvider extends PushProviderInterface {
         return {
             messageId: `local_push_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             userId: pushData.userId,
+            fcmToken: pushData.fcmToken ? `${pushData.fcmToken.substring(0, 20)}...` : 'not provided',
             title: pushData.title,
+            body: pushData.body,
             status: 'sent'
         };
     }
 
     async sendBroadcast(broadcastData) {
         try {
-            logger.info(`📡 [LOCAL] Enviando broadcast para ${broadcastData.userIds.length} usuários`, {
+            logger.info(`📡 [LOCAL] Enviando broadcast para ${broadcastData.notifications.length} notifications`, {
                 title: broadcastData.title,
-                userCount: broadcastData.userIds.length
+                notificationCount: broadcastData.notifications.length
             });
 
             const results = [];
+            let successCount = 0;
+            let failureCount = 0;
             
-            for (const userId of broadcastData.userIds) {
+            for (const notification of broadcastData.notifications) {
                 try {
-                    const result = await this.sendSingleNotification({
-                        userId,
+                    const pushData = {
+                        userId: notification.userId,
+                        fcmToken: notification.fcmToken,
                         title: broadcastData.title,
                         body: broadcastData.body,
-                        data: broadcastData.data
+                        data: {
+                            ...broadcastData.data,
+                            ...notification.customData
+                        }
+                    };
+
+                    const result = await this.sendSingleNotification(pushData);
+                    results.push({
+                        userId: notification.userId,
+                        fcmToken: notification.fcmToken ? `${notification.fcmToken.substring(0, 20)}...` : 'not provided',
+                        status: 'sent',
+                        messageId: result.messageId
                     });
-                    results.push(result);
+                    successCount++;
+
                 } catch (error) {
                     results.push({
-                        userId,
+                        userId: notification.userId,
+                        fcmToken: notification.fcmToken ? `${notification.fcmToken.substring(0, 20)}...` : 'not provided',
                         status: 'failed',
                         error: error.message
                     });
+                    failureCount++;
                 }
             }
 
             this.stats.broadcasts++;
-            this.stats.sent += results.filter(r => r.status === 'sent').length;
+            this.stats.sent += successCount;
 
             return {
                 success: true,
                 provider: this.name,
-                totalUsers: broadcastData.userIds.length,
-                sent: results.filter(r => r.status === 'sent').length,
-                failed: results.filter(r => r.status === 'failed').length,
+                totalNotifications: broadcastData.notifications.length,
+                sent: successCount,
+                failed: failureCount,
                 results,
                 sentAt: new Date().toISOString()
             };
@@ -121,12 +130,12 @@ class LocalPushProvider extends PushProviderInterface {
         }
 
         // Log da "notificação" que seria enviada
-        logger.debug(`🔔 [LOCAL] Notificação push:`, {
+        logger.debug(`🔔 [LOCAL] Notificação push simulada:`, {
             userId: pushData.userId,
+            fcmToken: pushData.fcmToken ? `${pushData.fcmToken.substring(0, 20)}...` : 'not provided',
             title: pushData.title,
             body: pushData.body,
-            data: pushData.data,
-            deepLink: pushData.deepLink
+            data: pushData.data
         });
     }
 
@@ -136,6 +145,7 @@ class LocalPushProvider extends PushProviderInterface {
             
             await this.simulatePushSending({
                 userId: 'test-user',
+                fcmToken: 'test_fcm_token_' + Date.now(),
                 title: 'Teste de Conexão',
                 body: 'Testando push notifications local',
                 data: { test: true }
@@ -164,7 +174,7 @@ class LocalPushProvider extends PushProviderInterface {
             provider: this.name,
             type: 'local',
             stats: this.stats,
-            features: ['single-notification', 'broadcast', 'deep-links']
+            features: ['single-notification', 'broadcast', 'fcm-tokens', 'simulation']
         };
     }
 

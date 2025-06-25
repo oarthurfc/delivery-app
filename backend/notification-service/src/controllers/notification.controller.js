@@ -213,9 +213,11 @@ router.post('/test/email', async (req, res) => {
  * /api/notifications/test/push:
  *   post:
  *     tags: [🔔 Push]
- *     summary: Teste direto de push notification (sem fila)
+ *     summary: Teste direto de push notification (sem fila) - REFATORADO
  *     description: |
- *       Envia uma push notification diretamente, sem passar pela fila RabbitMQ.
+ *       **🔄 REFATORADO**: Envia uma push notification diretamente, sem passar pela fila RabbitMQ.
+ *       
+ *       **🆕 Novo Formato**: Agora requer `fcmToken` para uso com Azure Functions.
  *       
  *       **💡 Dica**: Use este endpoint para testes rápidos. Para uso em produção, prefira `/queue/push`.
  *       
@@ -233,8 +235,12 @@ router.post('/test/email', async (req, res) => {
  *             properties:
  *               userId:
  *                 type: string
- *                 description: ID do usuário destinatário
+ *                 description: ID do usuário destinatário (opcional se tiver fcmToken)
  *                 example: "user123"
+ *               fcmToken:
+ *                 type: string
+ *                 description: FCM Token do dispositivo (obrigatório para Azure)
+ *                 example: "fnTJ06FQRxeXG-Bxp4eywu:APA91bG2cmCd9mx8..."
  *               type:
  *                 type: string
  *                 enum: [welcome, order_created, order_completed, evaluation_reminder, promotional]
@@ -253,27 +259,31 @@ router.post('/test/email', async (req, res) => {
  *                 description: Dados adicionais da notificação
  *                 example:
  *                   action: "OPEN_PROFILE"
- *               deepLink:
- *                 type: string
- *                 description: Deep link da notificação
- *                 example: "app://profile"
+ *                   orderId: 123
+ *               variables:
+ *                 type: object
+ *                 description: Variáveis para substituição no template
+ *                 example:
+ *                   customerName: "João Silva"
+ *                   orderId: 123
  *           examples:
  *             welcome:
  *               summary: Boas-vindas
  *               value:
  *                 userId: "user123"
+ *                 fcmToken: "fnTJ06FQRxeXG-Bxp4eywu:APA91bG2cmCd9mx8_h93kH3QlyaPLmbUkk1sBxdsbWl-dCWyUrbN-8BQfAdayAeH"
  *                 type: "welcome"
- *                 data:
- *                   action: "OPEN_PROFILE"
+ *                 variables:
+ *                   customerName: "João Silva"
  *             order_completed:
  *               summary: Pedido finalizado
  *               value:
  *                 userId: "user456"
+ *                 fcmToken: "dGhpc0lzQVRlc3RUb2tlbkZvckZDTQ:APA91bHabc123def456ghi789"
  *                 type: "order_completed"
- *                 data:
+ *                 variables:
  *                   orderId: 123
- *                   action: "EVALUATE_ORDER"
- *                 deepLink: "app://evaluate/123"
+ *                   customerName: "Maria Santos"
  *     responses:
  *       200:
  *         description: Push notification processada com sucesso
@@ -294,28 +304,51 @@ router.post('/test/email', async (req, res) => {
  *                 testData:
  *                   type: object
  *                   description: Dados que foram enviados
+ *       400:
+ *         description: Dados inválidos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "fcmToken ou userId é obrigatório"
  *       500:
  *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post('/test/push', async (req, res) => {
     try {
         const { 
-            userId = 'test-user-123',
+            userId,
+            fcmToken,
             type = 'welcome',
-            title = 'Notificação de Teste',
-            body = 'Esta é uma notificação de teste.',
+            title,
+            body,
             data = { test: true },
-            deepLink = 'app://home'
+            variables = {}
         } = req.body;
+        
+        // Validar se tem pelo menos fcmToken ou userId
+        if (!fcmToken && !userId) {
+            return res.status(400).json({
+                success: false,
+                error: 'fcmToken ou userId é obrigatório'
+            });
+        }
         
         const testPushData = {
             messageId: `test_push_${Date.now()}`,
-            userId,
+            userId: userId || 'test-user',
+            fcmToken: fcmToken || `test_fcm_token_${Date.now()}`,
             type,
             title,
             body,
             data,
-            deepLink,
+            variables,
             timestamp: new Date().toISOString()
         };
 
@@ -323,7 +356,7 @@ router.post('/test/push', async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Push notification de teste processada',
+            message: 'Push notification de teste processada (refatorado)',
             result,
             testData: testPushData
         });
@@ -493,74 +526,93 @@ router.post('/queue/email', async (req, res) => {
  * /api/notifications/queue/push:
  *   post:
  *     tags: [📬 Filas]
- *     summary: Publicar mensagem na fila de push notifications
+ *     summary: Publicar mensagem na fila de push notifications - REFATORADO
  *     description: |
- *       **🚀 Método Recomendado**: Publica uma mensagem na fila `push-notifications` 
+ *       **🔄 REFATORADO**: Publica uma mensagem na fila `push-notifications` 
  *       do RabbitMQ para processamento assíncrono.
+ *       
+ *       **🆕 Novo Formato**: Agora suporta `fcmToken` para integração com Azure Functions.
  *       
  *       **⚡ Vantagens**:
  *       - Processamento assíncrono e resiliente
  *       - Dead Letter Queue para tratamento de falhas
  *       - Retry automático em caso de problemas temporários
- *       - Suporte a deep links e dados customizados
+ *       - Suporte a FCM tokens e dados customizados
  *       
  *       **📱 Templates Automáticos**: O serviço possui templates baseados no `type`:
  *       
- *       | Tipo | Template | Deep Link |
- *       |------|----------|-----------|
- *       | `order_created` | "Pedido criado! 📦" | `app://track/{{orderId}}` |
- *       | `order_completed` | "Pedido entregue! ⭐" | `app://evaluate/{{orderId}}` |
- *       | `evaluation_reminder` | "Avalie sua entrega! ⭐" | `app://evaluate/{{orderId}}` |
- *       | `welcome` | "Bem-vindo! 👋" | `app://home` |
- *       | `promotional` | "{{title}}" | `app://promotions` |
+ *       | Tipo | Template | Dados Extras |
+ *       |------|----------|-------------|
+ *       | `order_created` | "Pedido criado! 📦" | `action: TRACK_ORDER` |
+ *       | `order_completed` | "Pedido entregue! ⭐" | `action: EVALUATE_ORDER` |
+ *       | `evaluation_reminder` | "Avalie sua entrega! ⭐" | `action: EVALUATE_ORDER` |
+ *       | `welcome` | "Bem-vindo! 👋" | `action: OPEN_HOME` |
+ *       | `promotional` | "{{title}}" | `action: OPEN_PROMOTIONS` |
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/PushMessage'
- *           examples:
- *             order_created:
- *               summary: 📦 Pedido Criado
- *               description: Notificação quando um novo pedido é criado
- *               value:
- *                 userId: "user123"
- *                 type: "order_created"
- *                 data:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: ID do usuário destinatário (opcional se tiver fcmToken)
+ *                 example: "user123"
+ *               fcmToken:
+ *                 type: string
+ *                 description: FCM Token do dispositivo (recomendado para Azure)
+ *                 example: "fnTJ06FQRxeXG-Bxp4eywu:APA91bG2cmCd9mx8..."
+ *               type:
+ *                 type: string
+ *                 enum: [welcome, order_created, order_completed, evaluation_reminder, promotional]
+ *                 description: Tipo da notificação
+ *                 example: "order_completed"
+ *               title:
+ *                 type: string
+ *                 description: Título (opcional, usa template se não informado)
+ *                 example: "Pedido entregue!"
+ *               body:
+ *                 type: string
+ *                 description: Corpo (opcional, usa template se não informado)
+ *                 example: "Seu pedido foi finalizado com sucesso"
+ *               data:
+ *                 type: object
+ *                 description: Dados adicionais da notificação
+ *                 example:
  *                   orderId: 123
- *                   action: "TRACK_ORDER"
+ *                   action: "EVALUATE_ORDER"
+ *               variables:
+ *                 type: object
+ *                 description: Variáveis para substituição no template
+ *                 example:
+ *                   orderId: 123
+ *                   customerName: "João Silva"
+ *               priority:
+ *                 type: string
+ *                 enum: [low, normal, high]
+ *                 default: normal
+ *                 description: Prioridade da mensagem
+ *           examples:
  *             order_completed:
  *               summary: ✅ Pedido Finalizado
  *               description: Notificação de entrega concluída
  *               value:
  *                 userId: "user456"
+ *                 fcmToken: "fnTJ06FQRxeXG-Bxp4eywu:APA91bG2cmCd9mx8_h93kH3QlyaPLmbUkk1sBxdsbWl-dCWyUrbN-8BQfAdayAeH"
  *                 type: "order_completed"
- *                 data:
+ *                 variables:
  *                   orderId: 123
- *                   action: "EVALUATE_ORDER"
- *                 deepLink: "app://evaluate/123"
- *             evaluation_reminder:
- *               summary: ⭐ Lembrete de Avaliação
- *               description: Lembrete para avaliar o pedido
+ *                   customerName: "Maria Santos"
+ *             welcome_with_fcm:
+ *               summary: 👋 Boas-vindas com FCM
+ *               description: Boas-vindas para novos usuários
  *               value:
- *                 userId: "user789"
- *                 type: "evaluation_reminder"
- *                 data:
- *                   orderId: 123
- *                   driverName: "Carlos"
- *                 deepLink: "app://evaluate/123"
- *             promotional:
- *               summary: 🎯 Promocional
- *               description: Notificação promocional
- *               value:
- *                 userId: "user999"
- *                 type: "promotional"
- *                 title: "🔥 Oferta Especial!"
- *                 body: "20% de desconto em todos os pedidos hoje!"
- *                 data:
- *                   campaign: "WEEKEND_SPECIAL"
- *                   discount: 20
- *                 deepLink: "app://promotions"
+ *                 userId: "newuser789"
+ *                 fcmToken: "dGhpc0lzQVRlc3RUb2tlbkZvckZDTQ:APA91bHabc123def456ghi789"
+ *                 type: "welcome"
+ *                 variables:
+ *                   customerName: "Ana Costa"
  *     responses:
  *       200:
  *         description: Mensagem publicada na fila com sucesso
@@ -574,7 +626,7 @@ router.post('/queue/email', async (req, res) => {
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: "Mensagem publicada na fila de push notifications"
+ *                   example: "Mensagem publicada na fila de push notifications (refatorado)"
  *                 messageId:
  *                   type: string
  *                   example: "queue_push_1642248600000"
@@ -586,10 +638,14 @@ router.post('/queue/email', async (req, res) => {
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               error: 'Campo "userId" é obrigatório'
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: 'fcmToken ou userId é obrigatório'
  *       500:
  *         $ref: '#/components/responses/ErrorResponse'
  */
@@ -597,29 +653,32 @@ router.post('/queue/push', async (req, res) => {
     try {
         const { 
             userId,
+            fcmToken,
             type = 'welcome',
             title,
             body,
             data,
-            deepLink,
+            variables,
             priority = 'normal'
         } = req.body;
         
-        if (!userId) {
+        // Validar se tem pelo menos fcmToken ou userId
+        if (!fcmToken && !userId) {
             return res.status(400).json({
                 success: false,
-                error: 'Campo "userId" é obrigatório'
+                error: 'fcmToken ou userId é obrigatório'
             });
         }
 
         const pushMessage = {
             messageId: `queue_push_${Date.now()}`,
             userId,
+            fcmToken,
             type,
             title,
             body,
             data: data || {},
-            deepLink,
+            variables: variables || {},
             priority,
             timestamp: new Date().toISOString()
         };
@@ -628,13 +687,169 @@ router.post('/queue/push', async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Mensagem publicada na fila de push notifications',
+            message: 'Mensagem publicada na fila de push notifications (refatorado)',
             messageId: pushMessage.messageId,
             queue: 'push-notifications'
         });
 
     } catch (error) {
         logger.error('❌ Erro ao publicar na fila de push:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @swagger
+ * /api/notifications/queue/push/broadcast:
+ *   post:
+ *     tags: [📬 Filas]
+ *     summary: Publicar broadcast na fila de push notifications - NOVO
+ *     description: |
+ *       **🆕 NOVO ENDPOINT**: Publica uma mensagem de broadcast na fila `push-notifications` 
+ *       para envio para múltiplos usuários.
+ *       
+ *       **📡 Funcionalidade de Broadcast**:
+ *       - Envio para múltiplos usuários
+ *       - Cada usuário pode ter seu próprio fcmToken
+ *       - Dados customizados por usuário
+ *       - Processamento assíncrono via fila
+ *       
+ *       **💡 Casos de Uso**:
+ *       - Campanhas promocionais
+ *       - Avisos gerais
+ *       - Notificações de sistema
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 description: Título do broadcast
+ *                 example: "🔥 Promoção Especial!"
+ *               body:
+ *                 type: string
+ *                 description: Corpo do broadcast
+ *                 example: "20% de desconto em todos os pedidos hoje!"
+ *               data:
+ *                 type: object
+ *                 description: Dados compartilhados para todos
+ *                 example:
+ *                   campaign: "WEEKEND_SPECIAL"
+ *                   discount: 20
+ *               notifications:
+ *                 type: array
+ *                 description: Lista de usuários para receber o broadcast
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     userId:
+ *                       type: string
+ *                       description: ID do usuário
+ *                       example: "user123"
+ *                     fcmToken:
+ *                       type: string
+ *                       description: FCM Token do usuário
+ *                       example: "fnTJ06FQRxeXG-Bxp4eywu:APA91bG2cmCd9mx8..."
+ *                     customData:
+ *                       type: object
+ *                       description: Dados específicos do usuário
+ *                       example:
+ *                         customerName: "João Silva"
+ *               priority:
+ *                 type: string
+ *                 enum: [low, normal, high]
+ *                 default: normal
+ *           examples:
+ *             promotional_broadcast:
+ *               summary: 🎯 Broadcast Promocional
+ *               value:
+ *                 title: "🔥 Promoção Especial!"
+ *                 body: "20% de desconto em todos os pedidos hoje!"
+ *                 data:
+ *                   campaign: "WEEKEND_SPECIAL"
+ *                   discount: 20
+ *                 notifications:
+ *                   - userId: "user123"
+ *                     fcmToken: "fnTJ06FQRxeXG-Bxp4eywu:APA91bG2cmCd9mx8_h93kH3QlyaPLmbUkk1sBxdsbWl-dCWyUrbN-8BQfAdayAeH"
+ *                     customData:
+ *                       customerName: "João Silva"
+ *                   - userId: "user456"
+ *                     fcmToken: "dGhpc0lzQVRlc3RUb2tlbkZvckZDTQ:APA91bHabc123def456ghi789"
+ *                     customData:
+ *                       customerName: "Maria Santos"
+ *     responses:
+ *       200:
+ *         description: Broadcast publicado na fila com sucesso
+ *       400:
+ *         description: Dados inválidos
+ *       500:
+ *         $ref: '#/components/responses/ErrorResponse'
+ */
+router.post('/queue/push/broadcast', async (req, res) => {
+    try {
+        const { 
+            title,
+            body,
+            data,
+            notifications,
+            priority = 'normal'
+        } = req.body;
+        
+        // Validações
+        if (!title || !body) {
+            return res.status(400).json({
+                success: false,
+                error: 'title e body são obrigatórios para broadcasts'
+            });
+        }
+
+        if (!notifications || !Array.isArray(notifications) || notifications.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'notifications array é obrigatório e deve ter pelo menos um item'
+            });
+        }
+
+        // Validar cada notificação
+        for (let i = 0; i < notifications.length; i++) {
+            const notification = notifications[i];
+            if (!notification.fcmToken && !notification.userId) {
+                return res.status(400).json({
+                    success: false,
+                    error: `Notificação ${i}: fcmToken ou userId é obrigatório`
+                });
+            }
+        }
+
+        const broadcastMessage = {
+            messageId: `queue_broadcast_${Date.now()}`,
+            type: 'broadcast',
+            title,
+            body,
+            data: data || {},
+            notifications,
+            priority,
+            timestamp: new Date().toISOString()
+        };
+
+        await rabbitmqConfig.publishMessage('notification.exchange', 'push.broadcast', broadcastMessage);
+
+        res.json({
+            success: true,
+            message: 'Broadcast publicado na fila de push notifications',
+            messageId: broadcastMessage.messageId,
+            notificationCount: notifications.length,
+            queue: 'push-notifications'
+        });
+
+    } catch (error) {
+        logger.error('❌ Erro ao publicar broadcast na fila de push:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -696,10 +911,10 @@ router.post('/queue/email/test', async (req, res) => {
  * /api/notifications/queue/push/test:
  *   post:
  *     tags: [📬 Filas]
- *     summary: Publicar mensagem de teste na fila de push
+ *     summary: Publicar mensagem de teste na fila de push - REFATORADO
  *     description: |
- *       Publica uma mensagem de teste pré-configurada na fila de push notifications.
- *       Útil para testes rápidos do sistema de filas.
+ *       **🔄 REFATORADO**: Publica uma mensagem de teste pré-configurada na fila de push notifications.
+ *       Agora inclui suporte a FCM tokens.
  *     requestBody:
  *       content:
  *         application/json:
@@ -710,6 +925,10 @@ router.post('/queue/email/test', async (req, res) => {
  *                 type: string
  *                 description: ID do usuário (opcional)
  *                 example: "test-user"
+ *               fcmToken:
+ *                 type: string
+ *                 description: FCM Token para teste (opcional)
+ *                 example: "test_fcm_token_123"
  *               type:
  *                 type: string
  *                 description: Tipo do teste (opcional)
@@ -726,12 +945,46 @@ router.post('/queue/push/test', async (req, res) => {
         
         res.json({
             success: true,
-            message: 'Mensagem de teste publicada na fila de push',
+            message: 'Mensagem de teste publicada na fila de push (refatorado)',
             testMessage
         });
 
     } catch (error) {
         logger.error('❌ Erro ao publicar teste na fila de push:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
+ * @swagger
+ * /api/notifications/queue/push/test/broadcast:
+ *   post:
+ *     tags: [📬 Filas]
+ *     summary: Publicar teste de broadcast na fila - NOVO
+ *     description: |
+ *       **🆕 NOVO ENDPOINT**: Publica uma mensagem de teste de broadcast 
+ *       pré-configurada na fila de push notifications.
+ *     responses:
+ *       200:
+ *         $ref: '#/components/responses/SuccessResponse'
+ *       500:
+ *         $ref: '#/components/responses/ErrorResponse'
+ */
+router.post('/queue/push/test/broadcast', async (req, res) => {
+    try {
+        const testMessage = await pushQueueListener.publishTestBroadcastMessage(req.body);
+        
+        res.json({
+            success: true,
+            message: 'Broadcast de teste publicado na fila de push',
+            testMessage
+        });
+
+    } catch (error) {
+        logger.error('❌ Erro ao publicar broadcast de teste na fila de push:', error);
         res.status(500).json({
             success: false,
             error: error.message

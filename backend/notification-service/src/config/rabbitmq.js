@@ -1,4 +1,4 @@
-// config/rabbitmq.js - Atualizado para suas variáveis
+// config/rabbitmq.js - ATUALIZADO para suportar broadcasts
 const amqp = require('amqplib');
 const logger = require('../utils/logger');
 
@@ -10,7 +10,7 @@ class RabbitMQConfig {
         this.maxReconnectAttempts = 10;
         this.reconnectAttempts = 0;
         
-        // Configuração das filas para notificações
+        // Configuração das filas para notificações (atualizada para suportar broadcasts)
         this.config = {
             exchanges: [
                 {
@@ -45,7 +45,9 @@ class RabbitMQConfig {
                     },
                     bindings: [
                         { exchange: 'notification.exchange', routingKey: 'push' },
-                        { exchange: 'notification.exchange', routingKey: 'push.*' }
+                        { exchange: 'notification.exchange', routingKey: 'push.*' },
+                        // NOVO: Suporte a broadcasts
+                        { exchange: 'notification.exchange', routingKey: 'push.broadcast' }
                     ]
                 }
             ]
@@ -72,7 +74,9 @@ class RabbitMQConfig {
             logger.error('❌ Erro ao conectar RabbitMQ:', error.message);
             await this.handleReconnect();
         }
-    }    buildConnectionUrl() {
+    }
+
+    buildConnectionUrl() {
         // Obter variáveis de ambiente diretamente do docker-compose
         const {
             RABBITMQ_HOST = 'localhost',
@@ -96,7 +100,7 @@ class RabbitMQConfig {
 
     async setupQueuesAndExchanges() {
         try {
-            logger.info('⚙️ Configurando exchanges e filas de notificação...');
+            logger.info('⚙️ Configurando exchanges e filas de notificação (com suporte a broadcasts)...');
             
             // Criar exchanges
             for (const exchange of this.config.exchanges) {
@@ -133,7 +137,7 @@ class RabbitMQConfig {
             await this.channel.bindQueue('notification.dlq', 'notification.dlx', '#');
             logger.info(`💀 Dead Letter Queue criada: notification.dlq`);
 
-            logger.info('✅ Todas as filas de notificação configuradas');
+            logger.info('✅ Todas as filas de notificação configuradas (incluindo broadcasts)');
             
         } catch (error) {
             logger.error('❌ Erro ao configurar filas/exchanges:', error);
@@ -191,7 +195,8 @@ class RabbitMQConfig {
 
             if (result) {
                 logger.info(`📤 Mensagem publicada: ${exchange}/${routingKey}`, {
-                    messageId: message.messageId || defaultOptions.messageId
+                    messageId: message.messageId || defaultOptions.messageId,
+                    type: message.type || 'unknown'
                 });
                 return true;
             } else {
@@ -294,7 +299,9 @@ class RabbitMQConfig {
     }
 
     async publishPushMessage(pushData) {
-        return this.publishMessage('notification.exchange', 'push', pushData);
+        // Escolher routing key baseado no tipo
+        const routingKey = pushData.type === 'broadcast' ? 'push.broadcast' : 'push';
+        return this.publishMessage('notification.exchange', routingKey, pushData);
     }
 
     getQueueConfig() {
