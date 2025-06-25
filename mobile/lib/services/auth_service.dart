@@ -27,7 +27,7 @@ class AuthService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://557e-2804-14c-5ba8-8b42-1a90-5859-2fe1-b143.ngrok-free.app/api';
+    return 'https://11e6-2804-14c-5ba8-8b42-c570-5d6a-bb54-8767.ngrok-free.app/api';
   }
 
   AuthService() {

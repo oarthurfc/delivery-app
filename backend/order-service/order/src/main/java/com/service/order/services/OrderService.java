@@ -144,9 +144,54 @@ public class OrderService {
             log.warn("Não foi possível enviar notificação de email para cliente ID: {}, email não encontrado",
                     completed.getCustomerId());
         }
-
+        sendPushNotification(completed);
         return toDTO(completed);
     }
+    private String getFcmTokenFromOrder(Long orderId) {
+        try {
+            String url = "http://api-gateway:8000/api/auth/user/"+ orderId;
+    
+            OrderTokenResponse response = webClient.get()
+                .uri(url)
+                .retrieve()
+                .bodyToMono(OrderTokenResponse.class)
+                .block();
+            
+                log.info("FcmToken encontrado: {}", response.getFcmToken());
+            return response != null ? response.getFcmToken() : null;
+        } catch (Exception e) {
+            log.error("Erro ao buscar fcmToken para o pedido {}", orderId, e);
+            return null;
+        }
+    }
+    
+
+    private void sendPushNotification(Order completed) {
+        log.info("Enviando notificação push para o cliente ID: {}", completed.getCustomerId());
+
+        try {
+            //String fcmToken = "fnTJ06FQRxeXG-Bxp4eywu:APA91bG2cmCd9mx8_h93kH3QlyaPLmbUkk1sBxdsbWl-dCWyUrbN-8BQfAdayAeH-DQ8yon4UfFS4G8-Kkw1o9-s1XNepEemwdvAFgQ7jEOz5K_ziG1iJ8Y";
+            String fcmToken = getFcmTokenFromOrder(completed.getCustomerId());
+            String title = "Pedido Finalizado!";
+            String body = "Seu pedido #" + completed.getId() + " foi recebido com sucesso!";
+        
+            var payload = new PushNotificationPayload(fcmToken, title, body);
+        
+            webClient.post()
+                .uri("http://192.168.0.21:7071/api/PushNotificationFunction")
+                .bodyValue(payload)
+                .retrieve()
+                .bodyToMono(Void.class)
+                .block();
+        
+            log.info("Push notification enviada com sucesso para pedido ID: {}", completed.getId());
+        } catch (Exception e) {
+            log.error("Erro ao enviar push notification para pedido ID: {}", completed.getId(), e);
+        }
+        // Implementar a lógica para enviar notificação push
+    }// Requisição para a Azure Function de Push Notification
+
+
 
     /**
      * Busca o email do cliente no serviço de autenticação

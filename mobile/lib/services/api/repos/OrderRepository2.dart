@@ -200,6 +200,19 @@ class OrderRepository2 {
     }
   }
 
+  // Finalizar entrega (PUT /orders/{id}/complete?imageUrl=...)
+  Future<int> completeOrder(int orderId, String imageUrl) async {
+    try {
+      print('OrderRepository2: Finalizando entrega do pedido $orderId...');
+      await _apiService.completeOrder(orderId, imageUrl);
+      print('OrderRepository2: Entrega finalizada com sucesso');
+      return 1;
+    } catch (e) {
+      print('OrderRepository2: Erro ao finalizar entrega: $e');
+      return 0;
+    }
+  }
+
   // ===== CONVERSÕES DTO =====
 
   Map<String, dynamic> _orderToCreateDTO(Order order) {

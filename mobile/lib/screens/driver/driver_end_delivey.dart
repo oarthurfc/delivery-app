@@ -97,20 +97,22 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
       final bytes = await _capturedImage!.readAsBytes();
       //final base64Image = base64Encode(bytes);
 
-      // Atualizar o status do pedido para entregue e adicionar imagem em base64
-      final order = widget.order;
-      order.status = OrderStatus.DELIVERIED;
-      order.imageUrl = "https://nfrirozajhxljhkieidn.supabase.co/storage/v1/object/public/userphotos//foto_entrega_1.jpeg";
+      // Aqui você pode fazer upload da imagem e obter a URL real
+      final imageUrl = "https://nfrirozajhxljhkieidn.supabase.co/storage/v1/object/public/userphotos//foto_entrega_1.jpeg";
 
-      // Atualizar via API
-      await _orderRepository.update(order);
+      // Chamar a nova rota para finalizar entrega
+      final result = await _orderRepository.completeOrder(widget.order.id, imageUrl);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Entrega finalizada com sucesso!')),
-      );
-
-      // Retornar true para a tela anterior indicando sucesso
-      Navigator.pop(context, true);
+      if (result == 1) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Entrega finalizada com sucesso!')),
+        );
+        Navigator.pop(context, true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erro ao finalizar entrega.')),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao finalizar entrega: $e')),

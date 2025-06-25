@@ -12,6 +12,7 @@ class ApiService {
   static const String _localIp = '192.168.167.87';
   static const String _emulatorIp = '10.0.2.2';
   static const int _port = 8000; // Porta do API Gateway
+  static const int _baseUrlFunctions = 8000; // Porta do API Gateway
 
   String get _baseUrl {
     if (kIsWeb) {
@@ -19,7 +20,7 @@ class ApiService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://557e-2804-14c-5ba8-8b42-1a90-5859-2fe1-b143.ngrok-free.app/api';
+    return 'https://11e6-2804-14c-5ba8-8b42-c570-5d6a-bb54-8767.ngrok-free.app/api';
   }
 
   ApiService() {
@@ -435,6 +436,21 @@ class ApiService {
       }
     } on DioException catch (e) {
       _handleError(e, 'Erro ao buscar pedidos do motorista');
+      rethrow;
+    }
+  }
+
+  // ===== FINALIZAR ENTREGA CUSTOM =====
+  Future<Map<String, dynamic>> completeOrder(int id, String imageUrl) async {
+    try {
+      print('ApiService: Finalizando entrega do pedido $id com imagem $imageUrl');
+      final response = await _dio.put(
+        '$_baseUrl/orders/$id/complete',
+        queryParameters: {'imageUrl': imageUrl},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      _handleError(e, 'Erro ao finalizar entrega');
       rethrow;
     }
   }

@@ -52,7 +52,28 @@ exports.register = async (req, res) => {
     res.status(500).json({ message: 'Erro ao criar usuário', error: error.message });
   }
 };
-
+// Buscar usuário por ID
+exports.getById = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+    res.json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      fcmToken: user.fcmToken,
+      role: user.role,
+      active: user.active,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao buscar usuário', error: error.message });
+  }
+};
 // Login
 exports.login = async (req, res) => {
   try {

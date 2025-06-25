@@ -65,4 +65,7 @@ router.put(
   authController.updateFcmToken
 );
 
+router.get('/user/:id', authController.getById);
+
+
 module.exports = router;
