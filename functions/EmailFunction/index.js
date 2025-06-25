@@ -6,7 +6,7 @@ module.exports = async function (context, req) {
   const emailData = req.body;
 
   const msg = {
-    to: emailData.to,
+    to: Array.isArray(emailData.to) ? emailData.to : [emailData.to],
     from: {
       name: process.env.EMAIL_FROM_NAME || "Notification Service",
       email: process.env.EMAIL_FROM_ADDRESS || "noreply@example.com"
