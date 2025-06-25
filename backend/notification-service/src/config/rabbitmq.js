@@ -1,3 +1,4 @@
+// config/rabbitmq.js - Atualizado para suas variáveis
 const amqp = require('amqplib');
 const logger = require('../utils/logger');
 
@@ -9,58 +10,42 @@ class RabbitMQConfig {
         this.maxReconnectAttempts = 10;
         this.reconnectAttempts = 0;
         
-        // Configuração das filas e exchanges
+        // Configuração das filas para notificações
         this.config = {
             exchanges: [
                 {
-                    name: 'order.exchange',
-                    type: 'topic',
-                    options: { durable: true }
-                },
-                {
-                    name: 'promotional.exchange',
+                    name: 'notification.exchange',
                     type: 'topic',
                     options: { durable: true }
                 }
             ],
             queues: [
                 {
-                    name: 'order.completed',
+                    name: 'emails',
                     options: { 
                         durable: true,
                         arguments: {
-                            'x-dead-letter-exchange': 'order.dlx',
+                            'x-dead-letter-exchange': 'notification.dlx',
                             'x-message-ttl': 3600000 // 1 hora
                         }
                     },
                     bindings: [
-                        { exchange: 'order.exchange', routingKey: 'order.completed' }
+                        { exchange: 'notification.exchange', routingKey: 'email' },
+                        { exchange: 'notification.exchange', routingKey: 'email.*' }
                     ]
                 },
                 {
-                    name: 'order.created',
+                    name: 'push-notifications',
                     options: { 
                         durable: true,
                         arguments: {
-                            'x-dead-letter-exchange': 'order.dlx',
+                            'x-dead-letter-exchange': 'notification.dlx',
                             'x-message-ttl': 3600000
                         }
                     },
                     bindings: [
-                        { exchange: 'order.exchange', routingKey: 'order.created' }
-                    ]
-                },
-                {
-                    name: 'promotional.campaigns',
-                    options: { 
-                        durable: true,
-                        arguments: {
-                            'x-dead-letter-exchange': 'promotional.dlx',
-                            'x-message-ttl': 7200000 // 2 horas
-                        }
-                    },
-                    bindings: [
-                        { exchange: 'promotional.exchange', routingKey: 'promotional.send' }
+                        { exchange: 'notification.exchange', routingKey: 'push' },
+                        { exchange: 'notification.exchange', routingKey: 'push.*' }
                     ]
                 }
             ]
@@ -75,10 +60,8 @@ class RabbitMQConfig {
             this.connection = await amqp.connect(rabbitmqUrl);
             this.channel = await this.connection.createChannel();
             
-            // Configurar prefetch para processar mensagens uma por vez
             await this.channel.prefetch(1);
             
-            // Configurar handlers de erro
             this.connection.on('error', this.handleConnectionError.bind(this));
             this.connection.on('close', this.handleConnectionClose.bind(this));
             
@@ -89,16 +72,20 @@ class RabbitMQConfig {
             logger.error('❌ Erro ao conectar RabbitMQ:', error.message);
             await this.handleReconnect();
         }
-    }
-
-    buildConnectionUrl() {
+    }    buildConnectionUrl() {
+        // Obter variáveis de ambiente diretamente do docker-compose
         const {
             RABBITMQ_HOST = 'localhost',
             RABBITMQ_PORT = '5672',
-            RABBITMQ_USERNAME = 'delivery_user',
-            RABBITMQ_PASSWORD = 'delivery_pass123',
+            RABBITMQ_USERNAME = process.env.RABBITMQ_USER, // Compatível com a variável do docker-compose
+            RABBITMQ_PASSWORD = process.env.RABBITMQ_PASSWORD, // Compatível com a variável do docker-compose
             RABBITMQ_VHOST = '/'
         } = process.env;
+
+        // Verificar se as variáveis essenciais estão definidas
+        if (!RABBITMQ_HOST || !RABBITMQ_USERNAME || !RABBITMQ_PASSWORD) {
+            logger.warn('⚠️ Variáveis de ambiente RabbitMQ incompletas, usando valores padrão');
+        }
 
         return `amqp://${RABBITMQ_USERNAME}:${RABBITMQ_PASSWORD}@${RABBITMQ_HOST}:${RABBITMQ_PORT}${RABBITMQ_VHOST}`;
     }
@@ -109,7 +96,7 @@ class RabbitMQConfig {
 
     async setupQueuesAndExchanges() {
         try {
-            logger.info('⚙️ Configurando exchanges e filas...');
+            logger.info('⚙️ Configurando exchanges e filas de notificação...');
             
             // Criar exchanges
             for (const exchange of this.config.exchanges) {
@@ -121,9 +108,9 @@ class RabbitMQConfig {
                 logger.info(`📡 Exchange criado: ${exchange.name}`);
             }
 
-            // Criar Dead Letter Exchanges
-            await this.channel.assertExchange('order.dlx', 'direct', { durable: true });
-            await this.channel.assertExchange('promotional.dlx', 'direct', { durable: true });
+            // Criar Dead Letter Exchange
+            await this.channel.assertExchange('notification.dlx', 'direct', { durable: true });
+            logger.info(`📡 Dead Letter Exchange criado: notification.dlx`);
 
             // Criar filas e bindings
             for (const queue of this.config.queues) {
@@ -141,7 +128,12 @@ class RabbitMQConfig {
                 }
             }
 
-            logger.info('✅ Todas as filas e exchanges configuradas');
+            // Criar fila DLQ
+            await this.channel.assertQueue('notification.dlq', { durable: true });
+            await this.channel.bindQueue('notification.dlq', 'notification.dlx', '#');
+            logger.info(`💀 Dead Letter Queue criada: notification.dlq`);
+
+            logger.info('✅ Todas as filas de notificação configuradas');
             
         } catch (error) {
             logger.error('❌ Erro ao configurar filas/exchanges:', error);
@@ -198,7 +190,9 @@ class RabbitMQConfig {
             );
 
             if (result) {
-                logger.info(`📤 Mensagem publicada: ${exchange}/${routingKey}`);
+                logger.info(`📤 Mensagem publicada: ${exchange}/${routingKey}`, {
+                    messageId: message.messageId || defaultOptions.messageId
+                });
                 return true;
             } else {
                 logger.warn(`⚠️ Mensagem não foi aceita: ${exchange}/${routingKey}`);
@@ -222,7 +216,7 @@ class RabbitMQConfig {
                 exclusive: false
             };
 
-            await this.channel.consume(
+            const consumerInfo = await this.channel.consume(
                 queueName,
                 async (message) => {
                     if (message) {
@@ -236,18 +230,15 @@ class RabbitMQConfig {
                                 timestamp: message.properties.timestamp
                             };
 
-                            logger.info(`📨 Processando mensagem: ${queueName} (${messageInfo.messageId})`);
+                            logger.debug(`📨 Processando mensagem: ${queueName} (${messageInfo.messageId})`);
                             
                             await callback(content, messageInfo);
                             
-                            // Confirmar processamento
                             this.channel.ack(message);
-                            logger.info(`✅ Mensagem processada: ${messageInfo.messageId}`);
+                            logger.debug(`✅ Mensagem confirmada: ${messageInfo.messageId}`);
 
                         } catch (error) {
                             logger.error(`❌ Erro ao processar mensagem ${message.properties.messageId}:`, error);
-                            
-                            // Rejeitar mensagem (vai para DLQ se configurado)
                             this.channel.nack(message, false, false);
                         }
                     }
@@ -255,7 +246,8 @@ class RabbitMQConfig {
                 { ...defaultOptions, ...options }
             );
 
-            logger.info(`👂 Escutando fila: ${queueName}`);
+            logger.info(`👂 Escutando fila: ${queueName} (consumer: ${consumerInfo.consumerTag})`);
+            return consumerInfo.consumerTag;
 
         } catch (error) {
             logger.error(`❌ Erro ao consumir fila ${queueName}:`, error);
@@ -293,7 +285,20 @@ class RabbitMQConfig {
     }
 
     isConnected() {
-        return this.connection && !this.connection.connection.serverProperties;
+        return this.connection && !this.connection.connection.destroyed;
+    }
+
+    // Métodos utilitários
+    async publishEmailMessage(emailData) {
+        return this.publishMessage('notification.exchange', 'email', emailData);
+    }
+
+    async publishPushMessage(pushData) {
+        return this.publishMessage('notification.exchange', 'push', pushData);
+    }
+
+    getQueueConfig() {
+        return this.config;
     }
 }
 
