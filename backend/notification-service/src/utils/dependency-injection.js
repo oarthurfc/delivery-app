@@ -26,7 +26,8 @@ class DependencyContainer {
             this.initialized = true;
             logger.info('✅ Dependency container inicializado', {
                 emailProvider: this.get('emailProvider').constructor.name,
-                pushProvider: this.get('pushProvider').constructor.name
+                pushProvider: this.get('pushProvider').constructor.name,
+                defaultProviders: 'azure' // Indicando que Azure é o default agora
             });
 
         } catch (error) {
@@ -36,18 +37,18 @@ class DependencyContainer {
     }
 
     registerEmailProvider() {
-        const emailProviderType = process.env.EMAIL_PROVIDER || 'local';
+        const emailProviderType = process.env.EMAIL_PROVIDER || 'azure';
         
         let emailProvider;
         switch (emailProviderType.toLowerCase()) {
-            case 'azure':
-                emailProvider = new AzureEmailProvider();
-                logger.info('📧 Registrado Azure Email Provider');
-                break;
             case 'local':
-            default:
                 emailProvider = new LocalEmailProvider();
                 logger.info('📧 Registrado Local Email Provider');
+                break;
+            case 'azure':
+            default:
+                emailProvider = new AzureEmailProvider();
+                logger.info('📧 Registrado Azure Email Provider');
                 break;
         }
         
@@ -55,18 +56,18 @@ class DependencyContainer {
     }
 
     registerPushProvider() {
-        const pushProviderType = process.env.PUSH_PROVIDER || 'local';
+        const pushProviderType = process.env.PUSH_PROVIDER || 'azure';
         
         let pushProvider;
         switch (pushProviderType.toLowerCase()) {
-            case 'azure':
-                pushProvider = new AzurePushProvider();
-                logger.info('🔔 Registrado Azure Push Provider');
-                break;
             case 'local':
-            default:
                 pushProvider = new LocalPushProvider();
                 logger.info('🔔 Registrado Local Push Provider');
+                break;
+            case 'azure':
+            default:
+                pushProvider = new AzurePushProvider();
+                logger.info('🔔 Registrado Azure Push Provider (modo simplificado FCM)');
                 break;
         }
         
