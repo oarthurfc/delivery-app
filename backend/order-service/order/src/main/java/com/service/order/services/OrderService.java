@@ -115,38 +115,71 @@ public class OrderService {
     }
 
     public OrderResponseDTO completeOrder(Long id, String imageUrl) {
-        log.info("Finalizando pedido com ID {}", id);
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado com ID: " + id));
+    log.info("Finalizando pedido com ID {}", id);
+    Order order = orderRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado com ID: " + id));
 
-        if (order.getStatus() == OrderStatus.DELIVERIED) {
-            throw new IllegalStateException("Pedido já está finalizado");
-        }
-
-        order.setStatus(OrderStatus.DELIVERIED);
-        order.setImageUrl(imageUrl);
-        Order completed = orderRepository.save(order);
-
-        // Publicar evento de finalização
-        // eventPublisher.publishOrderCompleted(completed);
-
-        // Buscar email do cliente no serviço de autenticação
-        String customerEmail = getCustomerEmail(completed.getCustomerId());
-        String motoristaEmail = getCustomerEmail(completed.getDriverId());
-
-        // Publicar notificação de email
-        if (customerEmail != null && !customerEmail.isEmpty()) {
-            eventPublisher.publishEmailNotification(completed, customerEmail);
-            eventPublisher.publishEmailNotification(completed, motoristaEmail);
-            log.info("Notificação de email enviada para cliente ID: {}, Email: {}",
-                    completed.getCustomerId(), customerEmail);
-        } else {
-            log.warn("Não foi possível enviar notificação de email para cliente ID: {}, email não encontrado",
-                    completed.getCustomerId());
-        }
-        sendPushNotification(completed);
-        return toDTO(completed);
+    if (order.getStatus() == OrderStatus.DELIVERIED) {
+        throw new IllegalStateException("Pedido já está finalizado");
     }
+
+    order.setStatus(OrderStatus.DELIVERIED);
+    order.setImageUrl(imageUrl);
+    Order completed = orderRepository.save(order);
+
+    // Publicar evento de finalização
+    eventPublisher.publishOrderCompleted(completed);
+
+    // Buscar informações do cliente e motorista no serviço de autenticação
+    String customerEmail = getCustomerEmail(completed.getCustomerId());
+    String customerName = getCustomerName(completed.getCustomerId()); // Novo método para buscar nome
+    
+    String motoristaEmail = getCustomerEmail(completed.getDriverId());
+    String motoristaName = getCustomerName(completed.getDriverId()); // Novo método para buscar nome
+
+    // Publicar notificações de email específicas para cliente e motorista
+    if (customerEmail != null && !customerEmail.isEmpty()) {
+        eventPublisher.publishCustomerEmailNotification(completed, customerEmail, customerName);
+        log.info("Notificação de email enviada para cliente ID: {}, Email: {}", 
+                completed.getCustomerId(), customerEmail);
+    } else {
+        log.warn("Não foi possível enviar notificação de email para cliente ID: {}, email não encontrado",
+                completed.getCustomerId());
+    }
+    
+    if (motoristaEmail != null && !motoristaEmail.isEmpty()) {
+        eventPublisher.publishDriverEmailNotification(completed, motoristaEmail, motoristaName);
+        log.info("Notificação de email enviada para motorista ID: {}, Email: {}", 
+                completed.getDriverId(), motoristaEmail);
+    } else {
+        log.warn("Não foi possível enviar notificação de email para motorista ID: {}, email não encontrado",
+                completed.getDriverId());
+    }
+    
+    // Enviar push notifications
+    sendPushNotification(completed);
+    
+    return toDTO(completed);
+}
+
+/**
+ * Método auxiliar para buscar nome do usuário (cliente ou motorista)
+ * Implementar conforme sua integração com o serviço de autenticação
+ */
+private String getCustomerName(Long userId) {
+    try {
+        // Implementar chamada para o serviço de autenticação para buscar o nome
+        // Exemplo:
+        // UserInfo userInfo = authServiceClient.getUserById(userId);
+        // return userInfo.getName();
+        
+        // Por enquanto, retornar null para usar o valor padrão nos templates
+        return "Renato";
+    } catch (Exception e) {
+        log.warn("Erro ao buscar nome do usuário ID: {}", userId, e);
+        return null;
+    }
+}
     private String getFcmTokenFromOrder(Long orderId) {
         try {
             String url = "http://api-gateway:8000/api/auth/user/"+ orderId;

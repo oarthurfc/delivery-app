@@ -89,11 +89,13 @@ router.get('/health', async (req, res) => {
  *       
  *       **💡 Dica**: Use este endpoint para testes rápidos. Para uso em produção, prefira `/queue/email`.
  *       
- *       **🎨 Templates Automáticos**: Se `subject` ou `body` não forem informados, 
- *       o sistema usa templates baseados no `type`:
- *       - `welcome` → "Bem-vindo!"
- *       - `order_created` → "Pedido #{{orderId}} criado!"
- *       - `order_completed` → "Pedido #{{orderId}} finalizado!"
+ *       **🎨 Templates Melhorados**: O sistema agora possui templates específicos para cliente e motorista:
+ *       - `ORDER_COMPLETED` → Templates diferenciados para cliente/motorista
+ *       - `ORDER_CREATED` → Confirmação de criação de pedido
+ *       - `welcome` → Boas-vindas personalizadas
+ *       
+ *       **🚛 Sistema de Delivery**: Variáveis específicas incluem endereços de origem/destino, 
+ *       informações do motorista e detalhes completos da entrega.
  *     requestBody:
  *       required: true
  *       content:
@@ -108,43 +110,93 @@ router.get('/health', async (req, res) => {
  *                 example: "cliente@example.com"
  *               type:
  *                 type: string
- *                 enum: [welcome, order_created, order_completed, promotional]
+ *                 enum: [ORDER_COMPLETED, ORDER_CREATED, order_completed, order_created, welcome, promotional]
  *                 default: "welcome"
  *                 description: Tipo do email (define template automático)
  *               subject:
  *                 type: string
  *                 description: Assunto (opcional, usa template se não informado)
- *                 example: "Bem-vindo ao Delivery!"
+ *                 example: "🎉 Pedido #123 entregue com sucesso!"
  *               body:
  *                 type: string
  *                 description: Corpo do email (opcional, usa template se não informado)
- *                 example: "Obrigado por se cadastrar!"
  *               template:
  *                 type: string
  *                 description: Template específico a ser usado
- *                 example: "welcome"
+ *                 example: "order-completed"
  *               variables:
  *                 type: object
  *                 description: Variáveis para substituição no template
  *                 example:
  *                   customerName: "João Silva"
  *                   orderId: 123
+ *                   recipientType: "CUSTOMER"
  *           examples:
- *             welcome:
- *               summary: Email de boas-vindas
+ *             customer_order_completed:
+ *               summary: 🎉 Pedido Entregue - Cliente
+ *               description: Email para cliente quando pedido é finalizado
  *               value:
- *                 to: "joao@example.com"
+ *                 to: "joao.silva@email.com"
+ *                 type: "ORDER_COMPLETED"
+ *                 variables:
+ *                   orderId: 12345
+ *                   customerName: "João Silva"
+ *                   recipientType: "CUSTOMER"
+ *                   orderDescription: "Pizza Margherita + Refrigerante"
+ *                   deliveryAddress: "Rua das Flores, 123 - Centro, São Paulo"
+ *                   originAddress: "Pizzaria do João - Rua Principal, 456"
+ *                   completedAt: "25/06/2025 14:30"
+ *                   orderStatus: "DELIVERIED"
+ *                   hasImage: true
+ *                   imageUrl: "https://storage.com/delivery-photo.jpg"
+ *             driver_order_completed:
+ *               summary: ✅ Entrega Finalizada - Motorista
+ *               description: Email para motorista quando entrega é concluída
+ *               value:
+ *                 to: "carlos.motorista@email.com"
+ *                 type: "ORDER_COMPLETED"
+ *                 variables:
+ *                   orderId: 12345
+ *                   customerName: "Carlos Entregador"
+ *                   recipientType: "DRIVER"
+ *                   orderDescription: "Pizza Margherita + Refrigerante"
+ *                   deliveryAddress: "Rua das Flores, 123 - Centro, São Paulo"
+ *                   originAddress: "Pizzaria do João - Rua Principal, 456"
+ *                   completedAt: "25/06/2025 14:30"
+ *                   customerId: 67890
+ *                   isDriver: true
+ *                   pickupAddress: "Pizzaria do João - Rua Principal, 456"
+ *             order_created:
+ *               summary: 📦 Novo Pedido - Cliente
+ *               description: Email de confirmação quando pedido é criado
+ *               value:
+ *                 to: "maria.santos@email.com"
+ *                 type: "ORDER_CREATED"
+ *                 variables:
+ *                   orderId: 12346
+ *                   customerName: "Maria Santos"
+ *                   orderDescription: "Hambúrguer Especial + Batata Frita"
+ *                   deliveryAddress: "Av. Paulista, 1000 - Bela Vista, São Paulo"
+ *                   createdAt: "25/06/2025 13:45"
+ *                   estimatedTime: "35-45 minutos"
+ *             welcome_customer:
+ *               summary: 👋 Boas-vindas - Novo Cliente
+ *               description: Email de boas-vindas para novo usuário
+ *               value:
+ *                 to: "novo.cliente@email.com"
  *                 type: "welcome"
  *                 variables:
- *                   customerName: "João Silva"
- *             order_completed:
- *               summary: Pedido finalizado
+ *                   customerName: "Ana Costa"
+ *                   userType: "CUSTOMER"
+ *             welcome_driver:
+ *               summary: 🚛 Boas-vindas - Novo Motorista
+ *               description: Email de boas-vindas para novo motorista
  *               value:
- *                 to: "cliente@example.com"
- *                 type: "order_completed"
+ *                 to: "novo.motorista@email.com"
+ *                 type: "welcome"
  *                 variables:
- *                   orderId: 123
- *                   customerName: "Maria Santos"
+ *                   customerName: "Roberto Silva"
+ *                   userType: "DRIVER"
  *     responses:
  *       200:
  *         description: Email processado com sucesso
@@ -173,8 +225,8 @@ router.post('/test/email', async (req, res) => {
         const { 
             to = 'test@example.com', 
             type = 'welcome',
-            subject = 'Email de Teste',
-            body = 'Este é um email de teste.',
+            subject,
+            body,
             template,
             variables = {}
         } = req.body;
@@ -353,14 +405,16 @@ router.post('/test/push', async (req, res) => {
  *       - Retry automático em caso de problemas temporários
  *       - Melhor performance para alto volume
  *       
- *       **🎨 Sistema de Templates**: O serviço possui templates automáticos baseados no `type`:
+ *       **🎨 Sistema de Templates Avançado**: 
  *       
- *       | Tipo | Template | Exemplo |
- *       |------|----------|---------|
- *       | `order_created` | "Pedido #{{orderId}} criado!" | Confirmação de pedido |
- *       | `order_completed` | "Pedido #{{orderId}} finalizado!" | Entrega concluída |
- *       | `welcome` | "Bem-vindo!" | Novo usuário |
- *       | `promotional` | "{{title}}" | Campanhas |
+ *       | Tipo | Para Quem | Template | Variáveis Especiais |
+ *       |------|-----------|----------|-------------------|
+ *       | `ORDER_COMPLETED` | Cliente | "🎉 Pedido entregue!" | `deliveryAddress`, `completedAt` |
+ *       | `ORDER_COMPLETED` | Motorista | "✅ Entrega finalizada!" | `pickupAddress`, `customerId` |
+ *       | `ORDER_CREATED` | Cliente | "📦 Pedido criado!" | `estimatedTime` |
+ *       | `welcome` | Ambos | "Bem-vindo!" | `userType` |
+ *       
+ *       **🚛 Detecta automaticamente** se é cliente ou motorista através de `recipientType`!
  *     requestBody:
  *       required: true
  *       content:
@@ -368,45 +422,92 @@ router.post('/test/push', async (req, res) => {
  *           schema:
  *             $ref: '#/components/schemas/EmailMessage'
  *           examples:
- *             order_created:
- *               summary: 📦 Pedido Criado
- *               description: Email automático quando um novo pedido é criado
+ *             realistic_customer_delivery:
+ *               summary: 🎉 Entrega Concluída - Cliente Real
+ *               description: Email real de finalização para cliente
  *               value:
- *                 to: "cliente@example.com"
- *                 type: "order_created"
+ *                 to: "ana.silva@gmail.com"
+ *                 type: "ORDER_COMPLETED"
+ *                 priority: "high"
  *                 variables:
- *                   orderId: 123
- *                   customerName: "João Silva"
- *                   estimatedTime: "30 minutos"
- *             order_completed:
- *               summary: ✅ Pedido Finalizado
- *               description: Email de confirmação de entrega
+ *                   orderId: 67890
+ *                   customerName: "Ana Silva"
+ *                   recipientType: "CUSTOMER"
+ *                   orderDescription: "2x Hambúrguer Artesanal + Batata Rústica + Refrigerante 350ml"
+ *                   deliveryAddress: "Rua das Palmeiras, 145 - Jardim Europa, São Paulo - SP"
+ *                   originAddress: "Burger House - Av. Paulista, 2000 - Consolação, São Paulo"
+ *                   completedAt: "25/06/2025 19:45"
+ *                   completedAtISO: "2025-06-25T19:45:00.000Z"
+ *                   orderStatus: "DELIVERIED"
+ *                   driverId: 12345
+ *                   hasImage: true
+ *                   imageUrl: "https://delivery-photos.com/order-67890.jpg"
+ *                   isDriver: false
+ *             realistic_driver_delivery:
+ *               summary: ✅ Entrega Concluída - Motorista Real
+ *               description: Email real de finalização para motorista
  *               value:
- *                 to: "cliente@example.com"
- *                 type: "order_completed"
+ *                 to: "carlos.santos@entregadores.com"
+ *                 type: "ORDER_COMPLETED"
+ *                 priority: "high"
  *                 variables:
- *                   orderId: 123
- *                   customerName: "Maria Santos"
- *                   driverName: "Carlos"
- *             welcome:
- *               summary: 👋 Boas-vindas
- *               description: Email de boas-vindas para novos usuários
+ *                   orderId: 67890
+ *                   customerName: "Carlos Santos"
+ *                   recipientType: "DRIVER"
+ *                   orderDescription: "2x Hambúrguer Artesanal + Batata Rústica + Refrigerante 350ml"
+ *                   deliveryAddress: "Rua das Palmeiras, 145 - Jardim Europa, São Paulo - SP"
+ *                   originAddress: "Burger House - Av. Paulista, 2000 - Consolação, São Paulo"
+ *                   pickupAddress: "Burger House - Av. Paulista, 2000 - Consolação, São Paulo"
+ *                   completedAt: "25/06/2025 19:45"
+ *                   customerId: 45678
+ *                   isDriver: true
+ *                   hasImage: true
+ *                   imageUrl: "https://delivery-photos.com/order-67890.jpg"
+ *             pizza_order_created:
+ *               summary: 📦 Nova Pizza - Pedido Criado
+ *               description: Confirmação de novo pedido de pizza
  *               value:
- *                 to: "novousuario@example.com"
+ *                 to: "joao.oliveira@hotmail.com"
+ *                 type: "ORDER_CREATED"
+ *                 priority: "normal"
+ *                 variables:
+ *                   orderId: 55432
+ *                   customerName: "João Oliveira"
+ *                   orderDescription: "Pizza Portuguesa Grande + Pizza Calabresa Média + Coca-Cola 2L"
+ *                   deliveryAddress: "Rua São João, 890 - Centro, Campinas - SP"
+ *                   createdAt: "25/06/2025 18:30"
+ *                   estimatedTime: "40-50 minutos"
+ *             customer_welcome:
+ *               summary: 👋 Bem-vindo - Novo Cliente
+ *               description: Primeiro email para cliente cadastrado
+ *               value:
+ *                 to: "maria.costa@yahoo.com"
  *                 type: "welcome"
  *                 variables:
- *                   customerName: "Ana Costa"
- *             promotional:
- *               summary: 🎯 Promocional
- *               description: Email de campanha promocional
+ *                   customerName: "Maria Costa"
+ *                   userType: "CUSTOMER"
+ *             driver_welcome:
+ *               summary: 🚛 Bem-vindo - Novo Motorista
+ *               description: Primeiro email para motorista cadastrado
  *               value:
- *                 to: "cliente@example.com"
- *                 type: "promotional"
- *                 subject: "🔥 Promoção Especial - 20% OFF"
- *                 body: "Aproveite nossa promoção especial!"
+ *                 to: "roberto.driver@gmail.com"
+ *                 type: "welcome"
  *                 variables:
- *                   discountPercent: 20
- *                   validUntil: "31/01/2024"
+ *                   customerName: "Roberto Fernandes"
+ *                   userType: "DRIVER"
+ *             promotional_weekend:
+ *               summary: 🎯 Promoção Final de Semana
+ *               description: Email promocional customizado
+ *               value:
+ *                 to: "cliente.vip@exemplo.com"
+ *                 type: "promotional"
+ *                 subject: "🔥 FINAL DE SEMANA ESPECIAL - 25% OFF em todos os pedidos!"
+ *                 variables:
+ *                   customerName: "Cliente VIP"
+ *                   discountPercent: 25
+ *                   validUntil: "27/06/2025"
+ *                   minOrderValue: "R$ 30,00"
+ *                   promoCode: "WEEKEND25"
  *     responses:
  *       200:
  *         description: Mensagem publicada na fila com sucesso
@@ -649,8 +750,16 @@ router.post('/queue/push', async (req, res) => {
  *     tags: [📬 Filas]
  *     summary: Publicar mensagem de teste na fila de emails
  *     description: |
- *       Publica uma mensagem de teste pré-configurada na fila de emails.
- *       Útil para testes rápidos do sistema de filas.
+ *       **🧪 Testes Pré-configurados**: Publica mensagens de teste que simulam 
+ *       cenários reais do sistema de delivery.
+ *       
+ *       **🚀 Cenários Disponíveis**:
+ *       - Entrega finalizada para cliente
+ *       - Entrega finalizada para motorista  
+ *       - Novo pedido criado
+ *       - Boas-vindas
+ *       
+ *       Se não especificado, usa cenário de entrega finalizada para cliente.
  *     requestBody:
  *       content:
  *         application/json:
@@ -664,8 +773,30 @@ router.post('/queue/push', async (req, res) => {
  *                 example: "test@example.com"
  *               type:
  *                 type: string
+ *                 enum: [ORDER_COMPLETED, ORDER_CREATED, welcome]
  *                 description: Tipo do teste (opcional)
- *                 example: "welcome"
+ *                 example: "ORDER_COMPLETED"
+ *               scenario:
+ *                 type: string
+ *                 enum: [customer_delivery, driver_delivery, new_order, welcome_customer, welcome_driver]
+ *                 description: Cenário pré-configurado (opcional)
+ *                 example: "customer_delivery"
+ *           examples:
+ *             customer_delivery_test:
+ *               summary: 🎉 Teste - Cliente Recebeu Entrega
+ *               value:
+ *                 to: "cliente.teste@email.com"
+ *                 scenario: "customer_delivery"
+ *             driver_delivery_test:
+ *               summary: ✅ Teste - Motorista Finalizou Entrega
+ *               value:
+ *                 to: "motorista.teste@email.com"
+ *                 scenario: "driver_delivery"
+ *             new_order_test:
+ *               summary: 📦 Teste - Novo Pedido Criado
+ *               value:
+ *                 to: "cliente.novo@email.com"
+ *                 scenario: "new_order"
  *     responses:
  *       200:
  *         $ref: '#/components/responses/SuccessResponse'
@@ -674,11 +805,92 @@ router.post('/queue/push', async (req, res) => {
  */
 router.post('/queue/email/test', async (req, res) => {
     try {
-        const testMessage = await emailQueueListener.publishTestMessage(req.body);
+        const { to, type, scenario } = req.body;
+        
+        // Cenários pré-configurados baseados no sistema real
+        const testScenarios = {
+            customer_delivery: {
+                to: to || 'cliente.teste@delivery.com',
+                type: 'ORDER_COMPLETED',
+                variables: {
+                    orderId: 98765,
+                    customerName: 'Ana Teste Cliente',
+                    recipientType: 'CUSTOMER',
+                    orderDescription: 'Pizza Portuguesa Grande + Refrigerante 2L',
+                    deliveryAddress: 'Rua de Teste, 123 - Centro, Test City',
+                    originAddress: 'Pizzaria Teste - Av. Principal, 456',
+                    completedAt: new Date().toLocaleString('pt-BR'),
+                    completedAtISO: new Date().toISOString(),
+                    orderStatus: 'DELIVERIED',
+                    driverId: 54321,
+                    hasImage: true,
+                    imageUrl: 'https://test-storage.com/delivery-photo-test.jpg',
+                    isDriver: false
+                }
+            },
+            driver_delivery: {
+                to: to || 'motorista.teste@delivery.com',
+                type: 'ORDER_COMPLETED',
+                variables: {
+                    orderId: 98765,
+                    customerName: 'Carlos Teste Motorista',
+                    recipientType: 'DRIVER',
+                    orderDescription: 'Pizza Portuguesa Grande + Refrigerante 2L',
+                    deliveryAddress: 'Rua de Teste, 123 - Centro, Test City',
+                    originAddress: 'Pizzaria Teste - Av. Principal, 456',
+                    pickupAddress: 'Pizzaria Teste - Av. Principal, 456',
+                    completedAt: new Date().toLocaleString('pt-BR'),
+                    customerId: 12345,
+                    isDriver: true,
+                    hasImage: true,
+                    imageUrl: 'https://test-storage.com/delivery-photo-test.jpg'
+                }
+            },
+            new_order: {
+                to: to || 'cliente.teste@delivery.com',
+                type: 'ORDER_CREATED',
+                variables: {
+                    orderId: 98766,
+                    customerName: 'João Teste Cliente',
+                    orderDescription: 'Hambúrguer Especial + Batata Frita + Suco Natural',
+                    deliveryAddress: 'Av. Teste, 789 - Bairro Novo, Test City',
+                    createdAt: new Date().toLocaleString('pt-BR'),
+                    estimatedTime: '35-45 minutos'
+                }
+            },
+            welcome_customer: {
+                to: to || 'novo.cliente@delivery.com',
+                type: 'welcome',
+                variables: {
+                    customerName: 'Maria Nova Cliente',
+                    userType: 'CUSTOMER'
+                }
+            },
+            welcome_driver: {
+                to: to || 'novo.motorista@delivery.com',
+                type: 'welcome',
+                variables: {
+                    customerName: 'Roberto Novo Motorista',
+                    userType: 'DRIVER'
+                }
+            }
+        };
+        
+        // Usar cenário especificado ou padrão
+        const selectedScenario = scenario || 'customer_delivery';
+        const testData = testScenarios[selectedScenario] || testScenarios.customer_delivery;
+        
+        // Sobrescrever tipo se especificado
+        if (type) {
+            testData.type = type;
+        }
+        
+        const testMessage = await emailQueueListener.publishTestMessage(testData);
         
         res.json({
             success: true,
-            message: 'Mensagem de teste publicada na fila de emails',
+            message: `Mensagem de teste "${selectedScenario}" publicada na fila de emails`,
+            scenario: selectedScenario,
             testMessage
         });
 

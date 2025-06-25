@@ -9,6 +9,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -22,6 +23,7 @@ import static com.service.order.config.RabbitMQConfig.ORDER_EXCHANGE;
 public class OrderEventPublisher {
 
     private final RabbitTemplate rabbitTemplate;
+    private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public void publishOrderCompleted(Order order) {
         try {
@@ -48,39 +50,113 @@ public class OrderEventPublisher {
     }
     
     /**
-     * Publica uma notificação de email na fila do serviço de notificações
-     * quando um pedido é finalizado
+     * Publica notificação de email para cliente quando pedido é finalizado
      */
-    public void publishEmailNotification(Order order, String customerEmail) {
+    public void publishCustomerEmailNotification(Order order, String customerEmail, String customerName) {
+        publishEmailNotification(order, customerEmail, customerName, "CUSTOMER");
+    }
+    
+    /**
+     * Publica notificação de email para motorista quando pedido é finalizado
+     */
+    public void publishDriverEmailNotification(Order order, String driverEmail, String driverName) {
+        publishEmailNotification(order, driverEmail, driverName, "DRIVER");
+    }
+    
+    /**
+     * Publica uma notificação de email na fila do serviço de notificações
+     */
+    private void publishEmailNotification(Order order, String email, String recipientName, String recipientType) {
         try {
             Map<String, Object> emailMessage = new HashMap<>();
             
             // Formato esperado pelo notification-service
-            emailMessage.put("messageId", "order_completed_" + UUID.randomUUID().toString());
-            emailMessage.put("to", customerEmail);
+            emailMessage.put("messageId", "order_completed_" + recipientType.toLowerCase() + "_" + UUID.randomUUID().toString());
+            emailMessage.put("to", email);
             emailMessage.put("type", "ORDER_COMPLETED");
-            emailMessage.put("subject", "Seu pedido foi entregue!");
+            emailMessage.put("subject", getSubjectByRecipientType(order, recipientType));
             emailMessage.put("template", "order_completed");
             emailMessage.put("priority", "high");
             emailMessage.put("timestamp", LocalDateTime.now().toString());
             
             // Variáveis para o template
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("orderId", order.getId());
-            variables.put("customerName", "Cliente"); // Idealmente, buscar o nome do cliente
-            variables.put("orderDescription", order.getDescription());
-            variables.put("deliveryAddress", formatAddress(order.getDestinationAddress()));
-            variables.put("completedAt", LocalDateTime.now().toString());
-            
+            Map<String, Object> variables = createEmailVariables(order, recipientName, recipientType);
             emailMessage.put("variables", variables);
             
             // Publicar na fila de emails usando a exchange de notificação
             rabbitTemplate.convertAndSend(NOTIFICATION_EXCHANGE, "email", emailMessage);
             
-            log.info("Notificação de email publicada para pedido ID: {}", order.getId());
+            log.info("Notificação de email publicada para {} - Pedido ID: {}, Email: {}", 
+                    recipientType, order.getId(), email);
         } catch (Exception e) {
-            log.error("Erro ao publicar notificação de email para pedido ID: {}", order.getId(), e);
+            log.error("Erro ao publicar notificação de email para {} - Pedido ID: {}", 
+                    recipientType, order.getId(), e);
         }
+    }
+    
+    /**
+     * Cria variáveis para o template de email
+     */
+    private Map<String, Object> createEmailVariables(Order order, String recipientName, String recipientType) {
+        Map<String, Object> variables = new HashMap<>();
+        
+        // Informações básicas
+        variables.put("orderId", order.getId());
+        variables.put("customerName", recipientName != null ? recipientName : getDefaultName(recipientType));
+        variables.put("recipientType", recipientType);
+        variables.put("orderDescription", order.getDescription() != null ? order.getDescription() : "Entrega");
+        
+        // Endereços formatados
+        variables.put("originAddress", formatAddress(order.getOriginAddress()));
+        variables.put("deliveryAddress", formatAddress(order.getDestinationAddress()));
+        
+        // Datas formatadas
+        variables.put("completedAt", LocalDateTime.now().format(dateFormatter));
+        variables.put("completedAtISO", LocalDateTime.now().toString());
+        
+        // Informações específicas por tipo de destinatário
+        if ("DRIVER".equals(recipientType)) {
+            variables.put("isDriver", true);
+            variables.put("customerId", order.getCustomerId());
+            variables.put("pickupAddress", formatAddress(order.getOriginAddress()));
+        } else {
+            variables.put("isDriver", false);
+            variables.put("driverId", order.getDriverId());
+        }
+        
+        // Status e imagem
+        variables.put("orderStatus", order.getStatus().toString());
+        variables.put("hasImage", order.getImageUrl() != null && !order.getImageUrl().isEmpty());
+        variables.put("imageUrl", order.getImageUrl());
+        
+        return variables;
+    }
+    
+    /**
+     * Retorna assunto do email baseado no tipo de destinatário
+     */
+    private String getSubjectByRecipientType(Order order, String recipientType) {
+        if ("DRIVER".equals(recipientType)) {
+            return "Entrega concluída - Pedido #" + order.getId();
+        } else {
+            return "Seu pedido foi entregue - #" + order.getId();
+        }
+    }
+    
+    /**
+     * Retorna nome padrão baseado no tipo de destinatário
+     */
+    private String getDefaultName(String recipientType) {
+        return "DRIVER".equals(recipientType) ? "Motorista" : "Cliente";
+    }
+
+    /**
+     * Método público para compatibilidade (será depreciado)
+     * @deprecated Use publishCustomerEmailNotification ou publishDriverEmailNotification
+     */
+    @Deprecated
+    public void publishEmailNotification(Order order, String customerEmail) {
+        publishCustomerEmailNotification(order, customerEmail, null);
     }
 
     private Map<String, Object> createOrderEvent(Order order, String eventType) {
@@ -131,11 +207,26 @@ public class OrderEventPublisher {
     private String formatAddress(com.service.order.models.Address address) {
         if (address == null) return "Endereço não disponível";
         
-        return String.format("%s, %s - %s, %s",
-            address.getStreet(),
-            address.getNumber(),
-            address.getNeighborhood(),
-            address.getCity()
-        );
+        StringBuilder formatted = new StringBuilder();
+        
+        if (address.getStreet() != null && !address.getStreet().isEmpty()) {
+            formatted.append(address.getStreet());
+            
+            if (address.getNumber() != null && !address.getNumber().isEmpty()) {
+                formatted.append(", ").append(address.getNumber());
+            }
+        }
+        
+        if (address.getNeighborhood() != null && !address.getNeighborhood().isEmpty()) {
+            if (formatted.length() > 0) formatted.append(" - ");
+            formatted.append(address.getNeighborhood());
+        }
+        
+        if (address.getCity() != null && !address.getCity().isEmpty()) {
+            if (formatted.length() > 0) formatted.append(", ");
+            formatted.append(address.getCity());
+        }
+        
+        return formatted.length() > 0 ? formatted.toString() : "Endereço não disponível";
     }
 }

@@ -84,6 +84,8 @@ class EmailQueueListener {
             type: messageData.type,
             queueMessageId: messageInfo.messageId
         });
+        //dar log da mensagem recebida
+        logger.debug(`Mensagem completa:`, JSON.stringify(messageData, null, 2));
 
         try {
             // Validar dados da mensagem
