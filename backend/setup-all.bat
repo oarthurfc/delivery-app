@@ -48,6 +48,10 @@ echo 🔐 Auth Service: http://localhost:3000
 echo 📦 Order Service: http://localhost:8080  
 echo 📍 Tracking Service: http://localhost:8081
 echo    └── Swagger: http://localhost:8081/api/docs
+echo 🔔 Notification Service: http://localhost:3001
+echo    └── Health:          http://localhost:3001/health
+echo    └── API:             http://localhost:3001/api/notifications
+echo    └── Swagger:         http://localhost:3001/api/docs
 echo 🌐 API Gateway: http://localhost:8000
 echo 🐰 RabbitMQ Management: http://localhost:15672 (delivery_user/delivery_pass)
 echo 🗄️ PostgreSQL (Orders): localhost:5432

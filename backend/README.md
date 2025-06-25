@@ -111,6 +111,7 @@ Após a execução bem-sucedida, os serviços estarão disponíveis em:
 | **🔐 Auth Service** | http://localhost:3000 | Autenticação e autorização |
 | **📦 Order Service** | http://localhost:8080 | Gerenciamento de pedidos |
 | **📍 Tracking Service** | http://localhost:8081 | Rastreamento em tempo real |
+| **🔔 Notification Service** | 3001 | http://localhost:3001 |
 | **📖 Tracking Docs** | http://localhost:8081/api/docs | Documentação Swagger |
 | **🐰 RabbitMQ** | http://localhost:15672 | Management UI |
 
