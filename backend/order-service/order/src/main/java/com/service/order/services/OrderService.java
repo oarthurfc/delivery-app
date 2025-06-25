@@ -2,6 +2,7 @@ package com.service.order.services;
 
 import com.service.order.dtos.*;
 import com.service.order.enums.OrderStatus;
+import com.service.order.events.OrderEventPublisher;
 import com.service.order.models.Order;
 import com.service.order.models.Address;
 import com.service.order.repositories.OrderRepository;
@@ -25,6 +26,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderEventPublisher eventPublisher;
     private final WebClient webClient = WebClient.create();
 
     public OrderResponseDTO createOrder(CreateOrderDTO dto) {
@@ -104,6 +106,25 @@ public class OrderService {
                 .collect(Collectors.toList());
 
         return new PageImpl<>(dtos, pageable, ordersPage.getTotalElements());
+    }
+
+    public OrderResponseDTO completeOrder(Long id, String imageUrl) {
+        log.info("Finalizando pedido com ID {}", id);
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado com ID: " + id));
+
+        if (order.getStatus() == OrderStatus.DELIVERIED) {
+            throw new IllegalStateException("Pedido já está finalizado");
+        }
+
+        order.setStatus(OrderStatus.DELIVERIED);
+        order.setImageUrl(imageUrl);
+        Order completed = orderRepository.save(order);
+        
+        // Publicar evento de finalização
+        eventPublisher.publishOrderCompleted(completed);
+        
+        return toDTO(completed);
     }
 
     // -----------------------
