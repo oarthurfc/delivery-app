@@ -8,9 +8,8 @@ class AzureFunctionsConfig {
         this.apiKey = process.env.AZURE_FUNCTIONS_API_KEY || '';
         this.timeout = parseInt(process.env.AZURE_FUNCTIONS_TIMEOUT) || 30000;
         
-        // CONFIGURAÇÃO REAL: Apenas uma função
         this.endpoints = {
-            emailSender: '/api/email-sender'  // A única função que vocês têm
+            emailSender: '/api/EmailFunction'  
         };
         
         // Configurar cliente HTTP
@@ -22,9 +21,6 @@ class AzureFunctionsConfig {
                 'User-Agent': 'notification-service/1.0.0'
             }
         });
-        
-        // NÃO usar header - Azure Functions espera code no query string
-        // (baseado no que seu amigo passou)
         
         this.setupInterceptors();
     }
