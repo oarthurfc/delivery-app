@@ -25,7 +25,7 @@ class AzureEmailProvider extends EmailProviderInterface {
             // Mapear dados para formato esperado pelo Azure Functions
             const azureEmailData = this.mapToAzureFormat(emailData);
             
-            const result = await this.azureFunctions.callSendCustomEmail(azureEmailData);
+            const result = await this.azureFunctions.sendEmail(azureEmailData);
             
             this.stats.sent++;
 

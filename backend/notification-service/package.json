@@ -16,7 +16,9 @@
     "winston": "^3.11.0",
     "amqplib": "^0.10.3",
     "axios": "^1.6.2",
-    "joi": "^17.11.0"
+    "joi": "^17.11.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.0"
   },
   "engines": {
     "node": ">=16.0.0"
