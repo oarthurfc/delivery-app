@@ -19,8 +19,8 @@ Um sistema completo de entregas desenvolvido como projeto acadêmico na PUC Mina
       </td>
       <!-- Card 2: Vídeo fornecido -->
       <td align="center" style="padding: 10px;">
-        <a href="https://youtu.be/iJBoM_VGZxc?si=XFKRrbm1gI13MGgf" target="_blank" style="text-decoration: none;">
-          <img src="https://img.youtube.com/vi/iJBoM_VGZxc/hqdefault.jpg" width="300" alt="Vídeo 2" style="border-radius: 10px; border: 1px solid #ddd;">
+        <a href="https://www.youtube.com/watch?v=tKkOWpcZqjU" target="_blank" style="text-decoration: none;">
+          <img src="https://img.youtube.com/vi/tKkOWpcZqjU/hqdefault.jpg" width="300" alt="Vídeo 2" style="border-radius: 10px; border: 1px solid #ddd;">
           <br>
           <img src="https://img.shields.io/badge/YouTube-Assistir-red?style=flat-square&logo=youtube" alt="Assistir no YouTube">
           <br>
