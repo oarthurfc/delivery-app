@@ -29,15 +29,14 @@ Um sistema completo de entregas desenvolvido como projeto acadêmico na PUC Mina
       </td>
       <!-- Card 3: Em Produção -->
       <td align="center" style="padding: 10px;">
-        <div style="width:300px; height:180px; display:flex; align-items:center; justify-content:center; border-radius:10px; border:1px solid #ddd; background:#f5f5f5;">
-          <strong style="color:#888; font-size:1.2em;">EM PRODUÇÃO</strong>
-        </div>
-        <br>
-        <img src="https://img.shields.io/badge/YouTube-Em%20Breve-lightgrey?style=flat-square&logo=youtube" alt="Em Breve no YouTube">
-        <br>
-        <strong style="color: #333; font-family: Arial, sans-serif;">Infraestrutura Serverless</strong>
+        <a href="https://www.youtube.com/watch?v=tKkOWpcZqjU" target="_blank" style="text-decoration: none;">
+          <img src="https://img.youtube.com/vi/tKkOWpcZqjU/hqdefault.jpg" width="300" alt="Vídeo 2" style="border-radius: 10px; border: 1px solid #ddd;">
+          <br>
+          <img src="https://img.shields.io/badge/YouTube-Assistir-red?style=flat-square&logo=youtube" alt="Assistir no YouTube">
+          <br>
+          <strong style="color: #333; font-family: Arial, sans-serif;">Arquitetura de Serverless</strong>
+        </a>
       </td>
-    </tr>
   </table>
 </p>
 
