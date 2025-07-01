@@ -23,6 +23,9 @@ class DriverDeliveryDetailsScreen extends StatefulWidget {
 }
 
 class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScreen> {
+  // Configuração de envio de localização - centralize aqui para facilitar mudanças
+  static const int secondsPerUpdate = 30; // 30 segundos entre envios de localização
+  
   bool _isImageExpanded = false;
   LatLng? _currentPosition;
   bool _isLoadingLocation = true;
@@ -57,6 +60,7 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
       final prefs = await SharedPreferences.getInstance();
       _driverId = prefs.getInt('current_user_id');
       print('DriverDelivery: ID do motorista: $_driverId');
+      print('DriverDelivery: Intervalo de envio de localização: ${secondsPerUpdate}s');
     } catch (e) {
       print('DriverDelivery: Erro ao carregar ID do motorista: $e');
     }
@@ -148,22 +152,26 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
 
-      setState(() {
-        _currentPosition = LatLng(position.latitude, position.longitude);
-        _isLoadingLocation = false;
-        _locationStatus = 'GPS ativado';
-      });
+      if (mounted) {
+        setState(() {
+          _currentPosition = LatLng(position.latitude, position.longitude);
+          _isLoadingLocation = false;
+          _locationStatus = 'GPS ativado';
+        });
 
-      // Centralize o mapa na posição atual, se disponível
-      if (_currentPosition != null) {
-        _mapController.move(_currentPosition!, 15.0);
+        // Centralize o mapa na posição atual, se disponível
+        if (_currentPosition != null) {
+          _mapController.move(_currentPosition!, 15.0);
+        }
       }
     } on PlatformException catch (e) {
       debugPrint('Erro ao obter localização: ${e.message}');
-      setState(() {
-        _isLoadingLocation = false;
-        _locationStatus = 'Erro ao obter localização';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingLocation = false;
+          _locationStatus = 'Erro ao obter localização';
+        });
+      }
     }
   }
   
@@ -187,8 +195,8 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Entrega iniciada! Sua localização será enviada automaticamente.'),
+        SnackBar(
+          content: Text('Entrega iniciada! Sua localização será enviada automaticamente a cada ${_getUpdateIntervalText()}.'),
           backgroundColor: Colors.green,
         ),
       );
@@ -205,13 +213,14 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
   // Iniciar o envio periódico de localização para o servidor
   void _startLocationTracking() {
     print('DriverDelivery: Iniciando envio automático de localização');
+    print('DriverDelivery: Intervalo configurado: ${secondsPerUpdate}s');
     
     // Cancela o timer existente, se houver
     _stopLocationTracking();
     
-    // Configura um novo timer para enviar localização a cada 1 minuto
-    _locationTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      print('DriverDelivery: Timer executado - enviando localização');
+    // Configura um novo timer para enviar localização no intervalo configurado
+    _locationTimer = Timer.periodic(Duration(seconds: secondsPerUpdate), (timer) {
+      print('DriverDelivery: Timer executado (${secondsPerUpdate}s) - enviando localização');
       _sendLocationToServer();
     });
     
@@ -229,68 +238,99 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
     _locationTimer?.cancel();
     _locationTimer = null;
     
-    // Não chama setState no dispose para evitar erro
-    _isSendingLocation = false;
-    _locationStatus = 'Envio de localização parado';
+    if (mounted) {
+      setState(() {
+        _isSendingLocation = false;
+        _locationStatus = 'Envio de localização parado';
+      });
+    }
   }
   
   // Enviar localização atual para o servidor
   Future<void> _sendLocationToServer() async {
-  if (_driverId == null) {
-    print('DriverDelivery: ID do motorista não encontrado');
-    return;
-  }
+    if (_driverId == null) {
+      print('DriverDelivery: ID do motorista não encontrado');
+      return;
+    }
 
-  try {
-    // Obter localização atual
-    final position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high
-    );
-    
-    // Atualizar posição no mapa
-    setState(() {
-      _currentPosition = LatLng(position.latitude, position.longitude);
-    });
-    
-    // Preparar dados para envio - SEM conversão dos IDs
-    final locationData = {
-      'orderId': widget.order.id, // Usar ID original
-      'driverId': _driverId!, // Usar ID original
-      'latitude': position.latitude,
-      'longitude': position.longitude,
-      'accuracy': position.accuracy,
-      'speed': position.speed,
-      'heading': position.heading,
-    };
-    
-    print('DriverDelivery: Enviando localização: $locationData');
-    
-    // Enviar para o servidor
-    await _apiService.updateLocation(locationData);
-    
-    // Atualizar status
-    setState(() {
-      _lastLocationSent = DateTime.now();
-      _locationStatus = 'Localização enviada: ${_formatTime(_lastLocationSent!)}';
-    });
-    
-    print('DriverDelivery: Localização enviada com sucesso');
-    
-    // Centralizar mapa na nova posição
-    if (_currentPosition != null) {
-      _mapController.move(_currentPosition!, 15.0);
+    if (!mounted) return;
+
+    try {
+      print('DriverDelivery: ===== ENVIANDO LOCALIZAÇÃO =====');
+      print('DriverDelivery: Intervalo configurado: ${secondsPerUpdate}s');
+      
+      // Obter localização atual
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high
+      );
+      
+      if (!mounted) return;
+      
+      // Atualizar posição no mapa
+      setState(() {
+        _currentPosition = LatLng(position.latitude, position.longitude);
+      });
+      
+      // Preparar dados para envio - SEM conversão dos IDs
+      final locationData = {
+        'orderId': widget.order.id, // Usar ID original
+        'driverId': _driverId!, // Usar ID original
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'accuracy': position.accuracy,
+        'speed': position.speed,
+        'heading': position.heading,
+      };
+      
+      print('DriverDelivery: Enviando localização: $locationData');
+      
+      // Enviar para o servidor
+      await _apiService.updateLocation(locationData);
+      
+      if (!mounted) return;
+      
+      // Atualizar status
+      final now = DateTime.now();
+      setState(() {
+        _lastLocationSent = now;
+        _locationStatus = 'Localização enviada: ${_formatTime(now)}';
+      });
+      
+      print('DriverDelivery: Localização enviada com sucesso');
+      
+      // Centralizar mapa na nova posição
+      if (_currentPosition != null) {
+        _mapController.move(_currentPosition!, 15.0);
+      }
+      
+    } catch (e) {
+      print('DriverDelivery: Erro ao enviar localização: $e');
+      if (mounted) {
+        setState(() {
+          _locationStatus = 'Erro ao enviar localização: $e';
+        });
+      }
     }
     
-  } catch (e) {
-    print('DriverDelivery: Erro ao enviar localização: $e');
-    setState(() {
-      _locationStatus = 'Erro ao enviar localização: $e';
-    });
+    print('DriverDelivery: ===== FIM DO ENVIO DE LOCALIZAÇÃO =====');
   }
-}
   
   String _formatTime(DateTime dateTime) {
     return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _getUpdateIntervalText() {
+    if (secondsPerUpdate >= 60) {
+      final minutes = secondsPerUpdate ~/ 60;
+      final remainingSeconds = secondsPerUpdate % 60;
+      if (remainingSeconds == 0) {
+        return '${minutes} minuto${minutes > 1 ? 's' : ''}';
+      } else {
+        return '${minutes}min ${remainingSeconds}s';
+      }
+    } else {
+      return '${secondsPerUpdate} segundo${secondsPerUpdate > 1 ? 's' : ''}';
+    }
   }
   
   // Finalizar a entrega
@@ -530,7 +570,7 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Sua localização está sendo enviada automaticamente a cada 1 minuto para o cliente acompanhar a entrega.',
+                                'Sua localização está sendo enviada automaticamente a cada ${_getUpdateIntervalText()} para o cliente acompanhar a entrega.',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.green.shade600,
@@ -547,6 +587,14 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                                   ),
                                 ),
                               ],
+                              const SizedBox(height: 4),
+                              Text(
+                                'Próximo envio em ${_getUpdateIntervalText()}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.green.shade400,
+                                ),
+                              ),
                             ],
                           ),
                         ),

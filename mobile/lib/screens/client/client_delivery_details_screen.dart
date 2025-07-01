@@ -16,9 +16,12 @@ class CustomerDeliveryDetailsScreen extends StatefulWidget {
 }
 
 class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsScreen> {
+  // Configuração de atualização - centralize aqui para facilitar mudanças
+  static const int secondsPerUpdate = 30; // 30 segundos entre atualizações
+  
   bool _isImageExpanded = false;
   Timer? _trackingTimer;
-  final ApiService _apiService = ApiService(); // Usando ApiService existente
+  final ApiService _apiService = ApiService();
   
   // Estado do rastreamento
   LatLng? _currentDriverLocation;
@@ -70,6 +73,8 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
 
   void _startTracking() {
     print('DeliveryDetails: Iniciando rastreamento em tempo real');
+    print('DeliveryDetails: Intervalo de atualização: ${secondsPerUpdate}s');
+    
     setState(() {
       _isTracking = true;
       _trackingStatus = 'Conectando ao rastreamento...';
@@ -78,9 +83,9 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
     // Busca localização imediatamente
     _updateDriverLocation();
 
-    // Configura timer para atualizar a cada 2 minutos (120 segundos)
-    _trackingTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
-      print('DeliveryDetails: Timer de rastreamento executado');
+    // Inicia timer com o intervalo configurado
+    _trackingTimer = Timer.periodic(Duration(seconds: secondsPerUpdate), (timer) {
+      print('DeliveryDetails: Timer de rastreamento executado (${secondsPerUpdate}s)');
       _updateDriverLocation();
     });
   }
@@ -90,143 +95,167 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
     _trackingTimer?.cancel();
     _trackingTimer = null;
     
-    // Não chama setState no dispose para evitar erro
-    _isTracking = false;
+    if (mounted) {
+      setState(() {
+        _isTracking = false;
+        _trackingStatus = 'Rastreamento interrompido';
+      });
+    }
   }
 
   Future<void> _updateDriverLocation() async {
-  if (!mounted) return;
+    if (!mounted) return;
 
-  try {
-    print('DeliveryDetails: ===== INICIANDO ATUALIZAÇÃO DE LOCALIZAÇÃO =====');
-    print('DeliveryDetails: ID do pedido: ${widget.order.id}');
-    
-    // Primeiro verifica se o pedido está sendo rastreado
-    print('DeliveryDetails: Verificando se pedido está sendo rastreado...');
-    final isBeingTracked = await _apiService.isOrderBeingTracked(widget.order.id);
-    print('DeliveryDetails: Pedido está sendo rastreado: $isBeingTracked');
-    
-    if (!isBeingTracked) {
-      print('DeliveryDetails: Pedido NÃO está sendo rastreado');
-      setState(() {
-        _trackingStatus = 'Motorista ainda não iniciou o rastreamento';
-        _currentDriverLocation = null;
-      });
-      return;
-    }
+    try {
+      print('DeliveryDetails: ===== INICIANDO ATUALIZAÇÃO DE LOCALIZAÇÃO =====');
+      print('DeliveryDetails: ID do pedido: ${widget.order.id}');
+      print('DeliveryDetails: Intervalo configurado: ${secondsPerUpdate}s');
+      
+      // Primeiro verifica se o pedido está sendo rastreado
+      print('DeliveryDetails: Verificando se pedido está sendo rastreado...');
+      final isBeingTracked = await _apiService.isOrderBeingTracked(widget.order.id);
+      print('DeliveryDetails: Pedido está sendo rastreado: $isBeingTracked');
+      
+      if (!isBeingTracked) {
+        print('DeliveryDetails: Pedido NÃO está sendo rastreado');
+        if (mounted) {
+          setState(() {
+            _trackingStatus = 'Motorista ainda não iniciou o rastreamento';
+            _currentDriverLocation = null;
+          });
+        }
+        return;
+      }
 
-    // Busca a localização atual
-    print('DeliveryDetails: Pedido ESTÁ sendo rastreado, buscando localização...');
-    final locationData = await _apiService.getCurrentLocation(widget.order.id);
-    print('DeliveryDetails: Dados brutos recebidos: $locationData');
-    
-    // Verificar a estrutura completa dos dados
-    if (locationData == null) {
-      print('DeliveryDetails: ERRO - locationData é null');
+      // Busca a localização atual
+      print('DeliveryDetails: Pedido ESTÁ sendo rastreado, buscando localização...');
+      final locationData = await _apiService.getCurrentLocation(widget.order.id);
+      print('DeliveryDetails: Dados brutos recebidos: $locationData');
+      
+      if (!mounted) return; // Verifica novamente antes de processar
+      
+      if (locationData == null) {
+        print('DeliveryDetails: ERRO - locationData é null');
+        setState(() {
+          _trackingStatus = 'Erro: nenhum dado retornado';
+          _currentDriverLocation = null;
+        });
+        return;
+      }
+      
+      print('DeliveryDetails: Verificando estrutura dos dados...');
+      print('DeliveryDetails: locationData.keys: ${locationData.keys}');
+      
+      if (!locationData.containsKey('data')) {
+        print('DeliveryDetails: ERRO - Chave "data" não encontrada');
+        setState(() {
+          _trackingStatus = 'Erro: estrutura de dados inválida';
+          _currentDriverLocation = null;
+        });
+        return;
+      }
+      
+      final dataSection = locationData['data'];
+      print('DeliveryDetails: Seção "data": $dataSection');
+      
+      if (dataSection == null) {
+        print('DeliveryDetails: ERRO - Seção "data" é null');
+        setState(() {
+          _trackingStatus = 'Erro: seção data vazia';
+          _currentDriverLocation = null;
+        });
+        return;
+      }
+      
+      if (!dataSection.containsKey('currentLocation')) {
+        print('DeliveryDetails: ERRO - Chave "currentLocation" não encontrada');
+        print('DeliveryDetails: Chaves disponíveis em data: ${dataSection.keys}');
+        setState(() {
+          _trackingStatus = 'Erro: localização atual não encontrada';
+          _currentDriverLocation = null;
+        });
+        return;
+      }
+      
+      final location = dataSection['currentLocation'];
+      print('DeliveryDetails: Dados de localização: $location');
+      
+      if (location == null) {
+        print('DeliveryDetails: ERRO - currentLocation é null');
+        setState(() {
+          _trackingStatus = 'Nenhuma localização recente encontrada';
+          _currentDriverLocation = null;
+        });
+        return;
+      }
+      
+      // Extrair coordenadas
+      final lat = location['latitude'];
+      final lng = location['longitude'];
+      print('DeliveryDetails: Latitude bruta: $lat (${lat.runtimeType})');
+      print('DeliveryDetails: Longitude bruta: $lng (${lng.runtimeType})');
+      
+      if (lat == null || lng == null) {
+        print('DeliveryDetails: ERRO - Coordenadas são null');
+        setState(() {
+          _trackingStatus = 'Erro: coordenadas inválidas';
+        });
+        return;
+      }
+      
+      final latDouble = lat is double ? lat : double.tryParse(lat.toString());
+      final lngDouble = lng is double ? lng : double.tryParse(lng.toString());
+      
+      print('DeliveryDetails: Latitude convertida: $latDouble');
+      print('DeliveryDetails: Longitude convertida: $lngDouble');
+      
+      if (latDouble == null || lngDouble == null) {
+        print('DeliveryDetails: ERRO - Não foi possível converter coordenadas');
+        setState(() {
+          _trackingStatus = 'Erro: conversão de coordenadas falhou';
+        });
+        return;
+      }
+      
+      // Sucesso! Atualizar localização
+      print('DeliveryDetails: SUCESSO - Atualizando localização no mapa');
+      final now = DateTime.now();
       setState(() {
-        _trackingStatus = 'Erro: nenhum dado retornado';
-        _currentDriverLocation = null;
+        _currentDriverLocation = LatLng(latDouble, lngDouble);
+        _lastUpdate = now;
+        _trackingStatus = 'Motorista localizado - última atualização: ${_formatTime(now)}';
       });
-      return;
+      print('DeliveryDetails: Localização atualizada com sucesso: $latDouble, $lngDouble');
+      
+    } catch (e, stackTrace) {
+      print('DeliveryDetails: ERRO EXCEPTION ao atualizar localização: $e');
+      print('DeliveryDetails: Stack trace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _trackingStatus = 'Erro ao buscar localização do motorista: $e';
+        });
+      }
     }
     
-    print('DeliveryDetails: Verificando estrutura dos dados...');
-    print('DeliveryDetails: locationData.keys: ${locationData.keys}');
-    
-    if (!locationData.containsKey('data')) {
-      print('DeliveryDetails: ERRO - Chave "data" não encontrada');
-      setState(() {
-        _trackingStatus = 'Erro: estrutura de dados inválida';
-        _currentDriverLocation = null;
-      });
-      return;
-    }
-    
-    final dataSection = locationData['data'];
-    print('DeliveryDetails: Seção "data": $dataSection');
-    
-    if (dataSection == null) {
-      print('DeliveryDetails: ERRO - Seção "data" é null');
-      setState(() {
-        _trackingStatus = 'Erro: seção data vazia';
-        _currentDriverLocation = null;
-      });
-      return;
-    }
-    
-    if (!dataSection.containsKey('currentLocation')) {
-      print('DeliveryDetails: ERRO - Chave "currentLocation" não encontrada');
-      print('DeliveryDetails: Chaves disponíveis em data: ${dataSection.keys}');
-      setState(() {
-        _trackingStatus = 'Erro: localização atual não encontrada';
-        _currentDriverLocation = null;
-      });
-      return;
-    }
-    
-    final location = dataSection['currentLocation'];
-    print('DeliveryDetails: Dados de localização: $location');
-    
-    if (location == null) {
-      print('DeliveryDetails: ERRO - currentLocation é null');
-      setState(() {
-        _trackingStatus = 'Nenhuma localização recente encontrada';
-        _currentDriverLocation = null;
-      });
-      return;
-    }
-    
-    // Extrair coordenadas
-    final lat = location['latitude'];
-    final lng = location['longitude'];
-    print('DeliveryDetails: Latitude bruta: $lat (${lat.runtimeType})');
-    print('DeliveryDetails: Longitude bruta: $lng (${lng.runtimeType})');
-    
-    if (lat == null || lng == null) {
-      print('DeliveryDetails: ERRO - Coordenadas são null');
-      setState(() {
-        _trackingStatus = 'Erro: coordenadas inválidas';
-      });
-      return;
-    }
-    
-    final latDouble = lat is double ? lat : double.tryParse(lat.toString());
-    final lngDouble = lng is double ? lng : double.tryParse(lng.toString());
-    
-    print('DeliveryDetails: Latitude convertida: $latDouble');
-    print('DeliveryDetails: Longitude convertida: $lngDouble');
-    
-    if (latDouble == null || lngDouble == null) {
-      print('DeliveryDetails: ERRO - Não foi possível converter coordenadas');
-      setState(() {
-        _trackingStatus = 'Erro: conversão de coordenadas falhou';
-      });
-      return;
-    }
-    
-    // Sucesso! Atualizar localização
-    print('DeliveryDetails: SUCESSO - Atualizando localização no mapa');
-    setState(() {
-      _currentDriverLocation = LatLng(latDouble, lngDouble);
-      _lastUpdate = DateTime.now();
-      _trackingStatus = 'Motorista localizado - última atualização: ${_formatTime(_lastUpdate!)}';
-    });
-    print('DeliveryDetails: Localização atualizada com sucesso: $latDouble, $lngDouble');
-    
-  } catch (e, stackTrace) {
-    print('DeliveryDetails: ERRO EXCEPTION ao atualizar localização: $e');
-    print('DeliveryDetails: Stack trace: $stackTrace');
-    setState(() {
-      _trackingStatus = 'Erro ao buscar localização do motorista: $e';
-    });
+    print('DeliveryDetails: ===== FIM DA ATUALIZAÇÃO DE LOCALIZAÇÃO =====');
   }
-  
-  print('DeliveryDetails: ===== FIM DA ATUALIZAÇÃO DE LOCALIZAÇÃO =====');
-}
-
 
   String _formatTime(DateTime dateTime) {
     return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _getUpdateIntervalText() {
+    if (secondsPerUpdate >= 60) {
+      final minutes = secondsPerUpdate ~/ 60;
+      final remainingSeconds = secondsPerUpdate % 60;
+      if (remainingSeconds == 0) {
+        return '${minutes} minuto${minutes > 1 ? 's' : ''}';
+      } else {
+        return '${minutes}min ${remainingSeconds}s';
+      }
+    } else {
+      return '${secondsPerUpdate} segundo${secondsPerUpdate > 1 ? 's' : ''}';
+    }
   }
 
   String getFormattedAddress(address) {
@@ -511,7 +540,7 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
                           const SizedBox(height: 8),
                           Text(
                             _currentDriverLocation != null
-                                ? 'Motorista localizado! A localização é atualizada automaticamente a cada 2 minutos.'
+                                ? 'Motorista localizado! A localização é atualizada automaticamente a cada ${_getUpdateIntervalText()}.'
                                 : 'Aguardando localização do motorista...',
                             style: TextStyle(
                               fontSize: 12,
@@ -529,6 +558,14 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
                               ),
                             ),
                           ],
+                          const SizedBox(height: 4),
+                          Text(
+                            'Próxima atualização em ${_getUpdateIntervalText()}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.blue.shade400,
+                            ),
+                          ),
                         ],
                       ),
                     ),
