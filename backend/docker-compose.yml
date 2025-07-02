@@ -66,22 +66,6 @@ services:
       retries: 5
       start_period: 30s
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    networks:
-      - message_bus
-    ports:
-      - "${RABBITMQ_MANAGEMENT_PORT}:15672"  # Management UI
-    healthcheck:
-      test: rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms
-      interval: 30s
-      timeout: 30s
-      retries: 3
-      start_period: 30s
-
   auth-service:
     build: 
       context: ./auth-service
@@ -115,9 +99,6 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER}
-      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     networks:
       - database
       - message_bus
@@ -125,8 +106,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
-        condition: service_started
 
   tracking-service:
     build:
@@ -143,9 +122,6 @@ services:
       - DB_PASSWORD=root
       - JWT_SECRET=${JWT_SECRET}
       - API_URL=http://localhost:${TRACKING_SERVICE_PORT}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_USER=${RABBITMQ_USER}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
     ports:
       - "${TRACKING_SERVICE_PORT}:${TRACKING_SERVICE_PORT}"
     networks:
@@ -154,8 +130,6 @@ services:
       - frontend
     depends_on:
       tracking_postgres:
-        condition: service_healthy
-      rabbitmq:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -173,78 +147,6 @@ services:
         echo 'PostgreSQL está pronto!' &&
         npm start
       "
-
-  # ========================================
-  # NOTIFICATION SERVICE (LIMPO - USA .ENV)
-  # ========================================
-  notification-service:
-    build:
-      context: ./notification-service
-      dockerfile: Dockerfile
-    container_name: notification_service
-    environment:
-      # Configurações básicas da aplicação
-      - NODE_ENV=production
-      - PORT=3001
-      - LOG_LEVEL=${NOTIFICATION_LOG_LEVEL}
-      
-      # RabbitMQ (conexão interna)
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USERNAME=${RABBITMQ_USER}
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
-      - RABBITMQ_VHOST=/
-      
-      # Provedores (do .env)
-      - EMAIL_PROVIDER=${EMAIL_PROVIDER}
-      - PUSH_PROVIDER=${PUSH_PROVIDER}
-      
-      # Azure Functions (do .env)
-      - AZURE_FUNCTIONS_BASE_URL=${AZURE_FUNCTIONS_BASE_URL}
-      - AZURE_FUNCTIONS_API_KEY=${AZURE_FUNCTIONS_API_KEY}
-      - AZURE_FUNCTIONS_TIMEOUT=${AZURE_FUNCTIONS_TIMEOUT}
-      
-      # Email settings (do .env)
-      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME}
-      - EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS}
-    
-    ports:
-      - "${NOTIFICATION_SERVICE_PORT}:3001"
-    
-    networks:
-      - message_bus
-      - frontend
-    
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    
-    restart: unless-stopped
-    
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
-      interval: 20s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    
-    volumes:
-      - ./notification-service/logs:/app/logs
-    
-    command: >
-      sh -c "
-        echo '🔔 Notification Service iniciando...' &&
-        echo 'Aguardando RabbitMQ estar pronto...' &&
-        while ! nc -z rabbitmq 5672; do
-          sleep 2
-        done &&
-        echo '✅ RabbitMQ pronto! Iniciando serviço...' &&
-        npm start
-      "
-
   api-gateway:
     build:
       context: ./api-gateway
@@ -254,7 +156,6 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:${AUTH_SERVICE_PORT}
       - ORDER_SERVICE_URL=http://order-service:${ORDER_SERVICE_PORT}
       - TRACKING_SERVICE_URL=http://tracking-service:${TRACKING_SERVICE_PORT}
-      - NOTIFICATION_SERVICE_URL=http://notification-service:3001
     networks:
       - frontend
     ports:
@@ -263,7 +164,6 @@ services:
       - auth-service
       - order-service
       - tracking-service
-      - notification-service
 
 volumes:
   postgres_data:
