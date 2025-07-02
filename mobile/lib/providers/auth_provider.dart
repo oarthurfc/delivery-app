@@ -65,7 +65,7 @@ class AuthProvider extends ChangeNotifier {
       _user = {
         'email': email,
         'role': response['role'] ?? 'customer',
-        'name': response['name'] ?? email.split('@')[0],
+        'name': response['name'] ?? "",
       };
       _error = null;
       return true;

@@ -20,7 +20,7 @@ class ApiService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://6388-2804-14c-5ba8-8b42-c763-b8b2-1ca6-4e5f.ngrok-free.app/api';
+    return 'https://3fb4-2804-14c-5ba8-8b42-7724-7ab1-c801-2f2b.ngrok-free.app/api';
   }
 
   ApiService() {
