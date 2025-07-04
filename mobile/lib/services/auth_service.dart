@@ -27,7 +27,7 @@ class AuthService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://11e6-2804-14c-5ba8-8b42-c570-5d6a-bb54-8767.ngrok-free.app/api';
+    return 'https://3fb4-2804-14c-5ba8-8b42-7724-7ab1-c801-2f2b.ngrok-free.app/api';
   }
 
   AuthService() {
@@ -110,7 +110,7 @@ class AuthService {
           final data = json.decode(decoded);
           
           final role = data['role'];
-          final name = data['email'].split('@')[0]; // Fallback para nome
+          final name = data['name']; // Fallback para nome
           
           // Verificar se o usuário já existe no banco de dados local
           final db = await DatabaseHelper().database;

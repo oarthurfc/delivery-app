@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+    
+  http: ^1.1.0
 
   # Integração com openStreetMapAPI
   flutter_map: ^6.1.0
