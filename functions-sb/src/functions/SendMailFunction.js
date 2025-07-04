@@ -1,7 +1,7 @@
 const { app } = require('@azure/functions');
 
 app.serviceBusTopic('function-send-mail', {
-    connection: 'sbdeliveryorderevents_SERVICEBUS',
+    connection: 'sb-delivery-app-brazil-south_RootManageSharedAccessKey_SERVICEBUS',
     topicName: 'order.finished',
     subscriptionName: 'send-mail-subscriber',
     handler: (message, context) => {
