@@ -41,7 +41,7 @@ app.serviceBusTopic('function-send-mail', {
       `;
 
       const msg = {
-        to: 'arthuryouface@gmail.com', //Tornar isso dinâmico depois mandando p/ cliente e entregador
+        to: 'ponge2004@gmail.com', //Tornar isso dinâmico depois mandando p/ cliente e entregador
         from: {
           name: process.env.EMAIL_FROM_NAME || 'Delivery App',
           email: process.env.EMAIL_FROM_ADDRESS || 'noreply@delivery.com'
