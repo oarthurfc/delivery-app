@@ -2,7 +2,6 @@ package com.service.order.services;
 
 import com.service.order.dtos.*;
 import com.service.order.enums.OrderStatus;
-import com.service.order.events.OrderEventPublisher;
 import com.service.order.models.Order;
 import com.service.order.models.Address;
 import com.service.order.repositories.OrderRepository;
@@ -26,7 +25,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 public class OrderService {
 
     private final OrderRepository orderRepository;
-    private final OrderEventPublisher eventPublisher;
+    private final OrderFinishedEventPublisher orderFinishedEventPublisher;
     private final WebClient webClient = WebClient.create();
 
     public OrderResponseDTO createOrder(CreateOrderDTO dto) {
@@ -128,7 +127,7 @@ public class OrderService {
     Order completed = orderRepository.save(order);
 
     // Publicar evento de finalização
-    eventPublisher.publishOrderCompleted(completed);
+    orderFinishedEventPublisher.publish(completed);
 
     // Buscar informações do cliente e motorista no serviço de autenticação
     String customerEmail = getCustomerEmail(completed.getCustomerId());
@@ -139,7 +138,7 @@ public class OrderService {
 
     // Publicar notificações de email específicas para cliente e motorista
     if (customerEmail != null && !customerEmail.isEmpty()) {
-        eventPublisher.publishCustomerEmailNotification(completed, customerEmail, customerName);
+        //eventPublisher.publishCustomerEmailNotification(completed, customerEmail, customerName);
         log.info("Notificação de email enviada para cliente ID: {}, Email: {}", 
                 completed.getCustomerId(), customerEmail);
     } else {
@@ -148,7 +147,7 @@ public class OrderService {
     }
     
     if (motoristaEmail != null && !motoristaEmail.isEmpty()) {
-        eventPublisher.publishDriverEmailNotification(completed, motoristaEmail, motoristaName);
+        //eventPublisher.publishDriverEmailNotification(completed, motoristaEmail, motoristaName);
         log.info("Notificação de email enviada para motorista ID: {}, Email: {}", 
                 completed.getDriverId(), motoristaEmail);
     } else {
@@ -157,7 +156,7 @@ public class OrderService {
     }
     
     // Enviar push notifications
-    sendPushNotification(completed);
+    //sendPushNotification(completed);
     
     return toDTO(completed);
 }
