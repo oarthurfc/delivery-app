@@ -1,19 +1,25 @@
+import 'package:delivery/database/repository/UserRepository.dart';
+import 'package:delivery/services/notification_service.dart';
 import 'package:delivery/services/token_service.dart';
 import 'package:dio/dio.dart';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../models/user.dart';
+import '../../database/database_helper.dart';
 
 class ApiService {
   final Dio _dio = Dio();
   final TokenService _tokenService = TokenService();
-
+  final UserRepository _userRepository = UserRepository();
+  
   // Configuração de ambiente
-  static const bool runningOnEmulator = false;
-  static const String _localIp = '192.168.167.87';
-  static const String _emulatorIp = '10.0.2.2';
-  static const int _port = 8000; // Porta do API Gateway
-  static const int _baseUrlFunctions = 8000; // Porta do API Gateway
-
+  static const bool runningOnEmulator = false; // <--- MUDE PARA TRUE NO EMULADOR
+  static const String _localIp = '192.168.167.87'; // IP do seu computador
+  static const String _emulatorIp = '10.0.2.2'; // IP especial para emulador Android
+  static const int _port = 8000;
+  
   String get _baseUrl {
     if (kIsWeb) {
       return 'http://localhost:$_port/api';
@@ -35,7 +41,7 @@ class ApiService {
           print('ApiService: Request URL: ${options.uri}');
           print('ApiService: Request Headers: ${options.headers}');
           print('ApiService: Request Data: ${options.data}');
-
+          
           final token = await _tokenService.getToken();
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
@@ -58,7 +64,7 @@ class ApiService {
     );
   }
 
-  // ===== AUTH SERVICE API =====
+  // ===== AUTHENTICATION METHODS =====
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
@@ -70,10 +76,80 @@ class ApiService {
           'password': password,
         },
       );
-      return response.data;
+
+      if (response.statusCode == 200) {
+        final token = response.data['token'];
+        await _tokenService.saveToken(token);
+        
+        // Decodificar o token JWT para obter informações do usuário
+        final parts = token.split('.');
+        if (parts.length == 3) {
+          final payload = parts[1];
+          final normalized = base64Url.normalize(payload);
+          final decoded = utf8.decode(base64Url.decode(normalized));
+          final data = json.decode(decoded);
+          
+          final role = data['role'];
+          final name = data['name']; // Fallback para nome
+          
+          // Verificar se o usuário já existe no banco de dados local
+          final db = await DatabaseHelper().database;
+          final result = await db.query(
+            'users',
+            where: 'username = ?',
+            whereArgs: [email],
+            limit: 1,
+          );
+          
+          int userId;
+          
+          if (result.isEmpty) {
+            // Usuário não existe localmente, vamos criá-lo
+            userId = DateTime.now().millisecondsSinceEpoch;
+            final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
+            
+            final user = User(
+              id: userId,
+              username: email,
+              name: name,
+              type: userType,
+            );
+            
+            // Salvar o usuário no repositório local
+            await _userRepository.save(user);
+          } else {
+            // Usuário já existe, usar o ID existente
+            userId = result.first['id'] as int;
+          }
+          
+          // Salvar o ID do usuário nas preferências compartilhadas para acesso rápido
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('current_user_id', userId);
+          
+          return {
+            'token': token,
+            'email': data['email'],
+            'role': role,
+            'name': name,
+            'userId': userId,
+          };
+        }
+        
+        return response.data;
+      }
+      throw Exception('Falha no login');
     } on DioException catch (e) {
-      _handleError(e, 'Erro ao fazer login');
-      rethrow;
+      if (e.response?.statusCode == 401) {
+        throw Exception('Email ou senha incorretos');
+      } else if (e.response?.statusCode == 404) {
+        throw Exception('Usuário não encontrado');
+      } else if (e.type == DioExceptionType.connectionTimeout) {
+        throw Exception('Erro de conexão. Verifique sua internet');
+      } else {
+        throw Exception('Erro ao fazer login. Tente novamente');
+      }
+    } catch (e) {
+      throw Exception('Erro ao fazer login. Tente novamente');
     }
   }
 
@@ -84,7 +160,14 @@ class ApiService {
     required String role,
   }) async {
     try {
-      print('ApiService: Registrando novo usuário');
+      // Obter o FCM token
+      final fcmToken = await NotificationService.getFcmToken();
+      if (fcmToken == null) {
+        throw Exception('Não foi possível obter o token de notificação. Verifique as permissões.');
+      }
+
+      print('ApiService: Registrando com FCM token: $fcmToken');
+
       final response = await _dio.post(
         '$_baseUrl/auth/register',
         data: {
@@ -92,12 +175,167 @@ class ApiService {
           'email': email,
           'password': password,
           'role': role,
+          'fcmToken': fcmToken,
         },
       );
-      return response.data;
+
+      if (response.statusCode == 201) {
+        final token = response.data['token'];
+        await _tokenService.saveToken(token);
+        
+        // Criar um objeto User para salvar no banco de dados local
+        final userId = DateTime.now().millisecondsSinceEpoch; // ID temporário, será atualizado na sincronização
+        final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
+        
+        final user = User(
+          id: userId,
+          username: email,
+          name: name,
+          type: userType,
+        );
+        
+        // Salvar o usuário no repositório local
+        await _userRepository.save(user);
+        
+        // Salvar o ID do usuário nas preferências compartilhadas para acesso rápido
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('current_user_id', userId);
+        
+        return {
+          'token': token,
+          'name': name,
+          'email': email,
+          'role': role,
+          'userId': userId,
+        };
+      }
+      throw Exception('Falha no registro');
     } on DioException catch (e) {
-      _handleError(e, 'Erro ao registrar usuário');
-      rethrow;
+      if (e.response?.statusCode == 409) {
+        throw Exception('Este email já está cadastrado');
+      } else if (e.type == DioExceptionType.connectionTimeout) {
+        throw Exception('Erro de conexão. Verifique sua internet');
+      } else {
+        throw Exception('Erro ao fazer registro. Tente novamente');
+      }
+    } catch (e) {
+      throw Exception('Erro ao fazer registro. Tente novamente');
+    }
+  }
+
+  Future<Map<String, dynamic>> getCurrentUser() async {
+    try {
+      // Primeiro, verificar se temos um usuário atual nas preferências
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('current_user_id');
+      
+      if (userId != null) {
+        // Buscar o usuário no banco de dados local
+        final user = await _userRepository.getById(userId);
+        if (user != null) {
+          return {
+            'email': user.username,
+            'role': user.type == UserType.DRIVER ? 'DRIVER' : 'CUSTOMER',
+            'name': user.name,
+            'userId': user.id,
+          };
+        }
+      }
+      
+      // Se não encontramos no banco local, tentamos validar o token
+      final response = await _dio.get('$_baseUrl/validate');
+      
+      if (response.statusCode == 200) {
+        // Como a rota /validate não retorna o nome, vamos buscar do token
+        final token = await _tokenService.getToken();
+        if (token != null) {
+          // Decodificar o token JWT para obter o email
+          final parts = token.split('.');
+          if (parts.length == 3) {
+            final payload = parts[1];
+            final normalized = base64Url.normalize(payload);
+            final decoded = utf8.decode(base64Url.decode(normalized));
+            final data = json.decode(decoded);
+            
+            final email = data['email'];
+            final role = data['role'];
+            final name = email.split('@')[0]; // Fallback para nome
+            
+            // Verificar se o usuário já existe no banco de dados local
+            final db = await DatabaseHelper().database;
+            final result = await db.query(
+              'users',
+              where: 'username = ?',
+              whereArgs: [email],
+              limit: 1,
+            );
+            
+            int newUserId;
+            
+            if (result.isEmpty) {
+              // Usuário não existe localmente, vamos criá-lo
+              newUserId = DateTime.now().millisecondsSinceEpoch;
+              final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
+              
+              final user = User(
+                id: newUserId,
+                username: email,
+                name: name,
+                type: userType,
+              );
+              
+              // Salvar o usuário no repositório local
+              await _userRepository.save(user);
+              
+              // Atualizar preferências compartilhadas
+              await prefs.setInt('current_user_id', newUserId);
+            } else {
+              // Usuário já existe, usar o ID existente
+              newUserId = result.first['id'] as int;
+              await prefs.setInt('current_user_id', newUserId);
+            }
+            
+            return {
+              'email': email,
+              'role': role,
+              'name': name,
+              'userId': newUserId,
+            };
+          }
+        }
+        return response.data;
+      }
+      throw Exception('Falha ao obter dados do usuário');
+    } catch (e) {
+      throw Exception('Erro ao obter dados do usuário: $e');
+    }
+  }
+
+  Future<bool> updateFcmToken() async {
+    try {
+      final fcmToken = await NotificationService.getFcmToken();
+      if (fcmToken == null) {
+        print('ApiService: Não foi possível obter FCM token para atualização');
+        return false;
+      }
+
+      print('ApiService: Atualizando FCM token: $fcmToken');
+
+      final response = await _dio.put(
+        '$_baseUrl/auth/update-fcm-token',
+        data: {
+          'fcmToken': fcmToken,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        print('ApiService: FCM token atualizado com sucesso');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('ApiService: Erro ao atualizar FCM token: $e');
+      return false;
     }
   }
 
@@ -112,6 +350,14 @@ class ApiService {
     }
   }
 
+  Future<void> logout() async {
+    await _tokenService.deleteToken();
+    
+    // Limpar o ID do usuário das preferências compartilhadas
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('current_user_id');
+  }
+
   Future<Map<String, dynamic>> checkAuthHealth() async {
     try {
       print('ApiService: Verificando saúde do auth-service');
@@ -123,7 +369,7 @@ class ApiService {
     }
   }
 
-  // ===== ORDER SERVICE API =====
+  // ===== ORDER SERVICE METHODS =====
 
   Future<Map<String, dynamic>> createOrder(Map<String, dynamic> orderData) async {
     try {
@@ -210,7 +456,82 @@ class ApiService {
     }
   }
 
-  // ===== TRACKING SERVICE API =====
+  Future<List<Map<String, dynamic>>> getOrdersByStatusPaged({
+    required String status,
+    int page = 0,
+    int size = 10,
+  }) async {
+    try {
+      print('ApiService: Buscando pedidos com status $status (página $page, tamanho $size)');
+      final response = await _dio.get(
+        '$_baseUrl/orders',
+        queryParameters: {'status': status, 'page': page, 'size': size},
+      );
+      
+      List<dynamic> orders;
+      if (response.data is Map && response.data.containsKey('content')) {
+        orders = response.data['content'] as List<dynamic>;
+      } else if (response.data is List) {
+        orders = response.data as List<dynamic>;
+      } else {
+        throw Exception('Formato de resposta inválido');
+      }
+      
+      return orders.map((item) => item as Map<String, dynamic>).toList();
+    } on DioException catch (e) {
+      _handleError(e, 'Erro ao buscar pedidos por status paginado');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getOrdersByDriverId(int driverId, {bool paged = false, int page = 0, int size = 10}) async {
+    try {
+      print('ApiService: Buscando pedidos do motorista $driverId');
+      
+      final String endpoint = paged 
+          ? '$_baseUrl/orders/driver/$driverId/paged?page=$page&size=$size' 
+          : '$_baseUrl/orders/driver/$driverId';
+          
+      final response = await _dio.get(endpoint);
+      
+      if (paged) {
+        // Se for paginado, o retorno é um objeto com 'content'
+        if (response.data is Map && response.data.containsKey('content')) {
+          final content = response.data['content'] as List<dynamic>;
+          return content.map((item) => item as Map<String, dynamic>).toList();
+        } else {
+          throw Exception('Formato de resposta inválido');
+        }
+      } else {
+        // Se não for paginado, o retorno é uma lista direta
+        if (response.data is List) {
+          final orders = response.data as List<dynamic>;
+          return orders.map((item) => item as Map<String, dynamic>).toList();
+        } else {
+          throw Exception('Formato de resposta inválido');
+        }
+      }
+    } on DioException catch (e) {
+      _handleError(e, 'Erro ao buscar pedidos do motorista');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> completeOrder(int id, String imageUrl) async {
+    try {
+      print('ApiService: Finalizando entrega do pedido $id com imagem $imageUrl');
+      final response = await _dio.put(
+        '$_baseUrl/orders/$id/complete',
+        queryParameters: {'imageUrl': imageUrl},
+      );
+      return response.data;
+    } on DioException catch (e) {
+      _handleError(e, 'Erro ao finalizar entrega');
+      rethrow;
+    }
+  }
+
+  // ===== TRACKING SERVICE METHODS =====
 
   Future<void> updateLocation(Map<String, dynamic> locationData) async {
     try {
@@ -234,20 +555,20 @@ class ApiService {
   }
 
   Future<bool> isOrderBeingTracked(int orderId) async {
-  try {
-    print('ApiService: Verificando se pedido $orderId está sendo rastreado');
-    final response = await _dio.get('$_baseUrl/tracking/order/$orderId/check');
-    
-    // A resposta tem a estrutura: { "success": true, "data": { "orderId": 1, "isBeingTracked": true } }
-    // Então precisamos acessar response.data['data']['isBeingTracked']
-    final isTracked = response.data['data']['isBeingTracked'] ?? false;
-    print('ApiService: Resultado do rastreamento: $isTracked');
-    return isTracked;
-  } on DioException catch (e) {
-    print('ApiService: Erro ao verificar status de rastreamento: $e');
-    return false;
+    try {
+      print('ApiService: Verificando se pedido $orderId está sendo rastreado');
+      final response = await _dio.get('$_baseUrl/tracking/order/$orderId/check');
+      
+      // A resposta tem a estrutura: { "success": true, "data": { "orderId": 1, "isBeingTracked": true } }
+      // Então precisamos acessar response.data['data']['isBeingTracked']
+      final isTracked = response.data['data']['isBeingTracked'] ?? false;
+      print('ApiService: Resultado do rastreamento: $isTracked');
+      return isTracked;
+    } on DioException catch (e) {
+      print('ApiService: Erro ao verificar status de rastreamento: $e');
+      return false;
+    }
   }
-}
 
   Future<Map<String, dynamic>?> getCurrentLocation(int orderId) async {
     try {
@@ -299,7 +620,7 @@ class ApiService {
     }
   }
 
-  // ===== ERROR HANDLING MELHORADO =====
+  // ===== ERROR HANDLING =====
 
   void _handleError(DioException e, String context) {
     print('ApiService: Handling error - Type: ${e.type}, Message: ${e.message}');
@@ -374,83 +695,6 @@ class ApiService {
     } catch (e) {
       print('ApiService: Teste de conectividade FALHOU ❌');
       print('ApiService: Erro: $e');
-      rethrow;
-    }
-  }
-
-  // Buscar pedidos por status com paginação
-  Future<List<Map<String, dynamic>>> getOrdersByStatusPaged({
-    required String status,
-    int page = 0,
-    int size = 10,
-  }) async {
-    try {
-      print('ApiService: Buscando pedidos com status $status (página $page, tamanho $size)');
-      final response = await _dio.get(
-        '$_baseUrl/orders',
-        queryParameters: {'status': status, 'page': page, 'size': size},
-      );
-      
-      List<dynamic> orders;
-      if (response.data is Map && response.data.containsKey('content')) {
-        orders = response.data['content'] as List<dynamic>;
-      } else if (response.data is List) {
-        orders = response.data as List<dynamic>;
-      } else {
-        throw Exception('Formato de resposta inválido');
-      }
-      
-      return orders.map((item) => item as Map<String, dynamic>).toList();
-    } on DioException catch (e) {
-      _handleError(e, 'Erro ao buscar pedidos por status paginado');
-      rethrow;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getOrdersByDriverId(int driverId, {bool paged = false, int page = 0, int size = 10}) async {
-    try {
-      print('ApiService: Buscando pedidos do motorista $driverId');
-      
-      final String endpoint = paged 
-          ? '$_baseUrl/orders/driver/$driverId/paged?page=$page&size=$size' 
-          : '$_baseUrl/orders/driver/$driverId';
-          
-      final response = await _dio.get(endpoint);
-      
-      if (paged) {
-        // Se for paginado, o retorno é um objeto com 'content'
-        if (response.data is Map && response.data.containsKey('content')) {
-          final content = response.data['content'] as List<dynamic>;
-          return content.map((item) => item as Map<String, dynamic>).toList();
-        } else {
-          throw Exception('Formato de resposta inválido');
-        }
-      } else {
-        // Se não for paginado, o retorno é uma lista direta
-        if (response.data is List) {
-          final orders = response.data as List<dynamic>;
-          return orders.map((item) => item as Map<String, dynamic>).toList();
-        } else {
-          throw Exception('Formato de resposta inválido');
-        }
-      }
-    } on DioException catch (e) {
-      _handleError(e, 'Erro ao buscar pedidos do motorista');
-      rethrow;
-    }
-  }
-
-  // ===== FINALIZAR ENTREGA CUSTOM =====
-  Future<Map<String, dynamic>> completeOrder(int id, String imageUrl) async {
-    try {
-      print('ApiService: Finalizando entrega do pedido $id com imagem $imageUrl');
-      final response = await _dio.put(
-        '$_baseUrl/orders/$id/complete',
-        queryParameters: {'imageUrl': imageUrl},
-      );
-      return response.data;
-    } on DioException catch (e) {
-      _handleError(e, 'Erro ao finalizar entrega');
       rethrow;
     }
   }

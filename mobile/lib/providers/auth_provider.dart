@@ -1,9 +1,9 @@
+import 'package:delivery/services/api/ApiService.dart';
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
 import '../services/token_service.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final ApiService _apiService = ApiService();
   final TokenService _tokenService = TokenService();
   bool _isAuthenticated = false;
   bool _isLoading = false;
@@ -36,7 +36,7 @@ class AuthProvider extends ChangeNotifier {
       
       if (hasToken) {
         // Tenta obter dados do usuário
-        _user = await _authService.getCurrentUser();
+        _user = await _apiService.getCurrentUser();
         print('AuthProvider: Dados do usuário obtidos: $_user');
         _isAuthenticated = true;
       } else {
@@ -61,17 +61,19 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _authService.login(email, password);
+      final response = await _apiService.login(email, password);
       _user = {
         'email': email,
         'role': response['role'] ?? 'customer',
         'name': response['name'] ?? "",
       };
+      _isAuthenticated = true;
       _error = null;
       return true;
     } catch (e) {
       _error = e.toString();
       _user = null;
+      _isAuthenticated = false;
       return false;
     } finally {
       _isLoading = false;
@@ -91,7 +93,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       print('AuthProvider: Iniciando registro com FCM token');
-      final response = await _authService.register(
+      final response = await _apiService.register(
         name: name,
         email: email,
         password: password,
@@ -102,11 +104,13 @@ class AuthProvider extends ChangeNotifier {
         'role': role,
         'name': name,
       };
+      _isAuthenticated = true;
       _error = null;
       return true;
     } catch (e) {
       _error = e.toString();
       _user = null;
+      _isAuthenticated = false;
       return false;
     } finally {
       _isLoading = false;
@@ -117,7 +121,7 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> updateFcmToken() async {
     try {
       print('AuthProvider: Atualizando FCM token');
-      final success = await _authService.updateFcmToken();
+      final success = await _apiService.updateFcmToken();
       if (success) {
         print('AuthProvider: FCM token atualizado com sucesso');
       } else {
@@ -132,9 +136,9 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     print('AuthProvider: Iniciando logout');
-    await _authService.logout();
+    await _apiService.logout();
     _isAuthenticated = false;
     _user = null;
     notifyListeners();
   }
-} 
+}
