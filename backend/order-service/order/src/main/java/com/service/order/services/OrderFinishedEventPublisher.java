@@ -5,9 +5,11 @@ import com.azure.messaging.servicebus.ServiceBusMessage;
 import com.azure.messaging.servicebus.ServiceBusSenderClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.service.order.models.Order;
+import com.service.order.dtos.OrderFinishedEventDTO;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class OrderFinishedEventPublisher {
 
     private final ServiceBusSenderClient senderClient;
@@ -18,9 +20,10 @@ public class OrderFinishedEventPublisher {
         this.objectMapper = objectMapper;
     }
 
-    public void publish(Order order) {
+    public void publish(OrderFinishedEventDTO eventDTO) {
+        log.info("Publicando evento de pedido finalizado: {}", eventDTO);
         try {
-            String json = objectMapper.writeValueAsString(order);
+            String json = objectMapper.writeValueAsString(eventDTO);
             senderClient.sendMessage(new ServiceBusMessage(json));
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Erro ao serializar o evento de pedido finalizado", e);
