@@ -4,7 +4,7 @@ Sistema completo de backend baseado em arquitetura de microsserviços para aplic
 
 ## 🏗️ Arquitetura
 
-O sistema é composto por 5 microsserviços independentes que se comunicam através de APIs REST e mensageria:
+O sistema é composto por 4 microsserviços independentes que se comunicam através de APIs REST e mensageria:
 
 ```
                     ┌─────────────────┐
@@ -14,7 +14,8 @@ O sistema é composto por 5 microsserviços independentes que se comunicam atrav
                               │
                  ┌────────────▼────────────┐
                  │     🌐 API Gateway      │
-                 │        (Spring)         │
+                 │      (Spring Boot)      │
+                 │        Port 8000        │
                  └────────────┬────────────┘
                               │
      ┌────────────────────────┼────────────────────────┐
@@ -22,34 +23,30 @@ O sistema é composto por 5 microsserviços independentes que se comunicam atrav
 ┌────▼────────┐    ┌─────────▼────────┐    ┌─────────▼────────┐
 │  🔐 Auth     │    │  📦 Orders       │    │  📍 Tracking     │
 │  Service     │    │  Service         │    │  Service         │
-│  (Node.js)   │    │  (Spring Boot)   │    │  (Node.js)       │
+│ (Node.js)    │    │ (Spring Boot)    │    │  (Node.js)       │
+│ Port 3000    │    │  Port 8080       │    │  Port 8081       │
 └─────┬───────┘    └─────────┬────────┘    └─────────┬────────┘
       │                      │                       │
       ▼                      ▼                       ▼
  ┌─────────┐           ┌──────────┐             ┌──────────┐
  │ MongoDB │           │PostgreSQL│             │PostgreSQL│
- │         │           │(Orders)  │             │(Tracking)│
+ │ Port    │           │ (Orders) │             │(Tracking)│
+ │ 27017   │           │ Port 5432│             │Port 5433 │
  └─────────┘           └──────────┘             └──────────┘
       │                      │                       │
       └──────────────────────┼───────────────────────┘
                              │
                     ┌────────▼────────┐
                     │   🐰 RabbitMQ   │
-                    │ (Mensageria)    │
+                    │   (Mensageria)  │
+                    │   Port 15672    │
                     └────────┬────────┘
                              │
-                  ┌──────────▼──────────┐
-                  │ 🔔 Notification     │
-                  │    Service          │
-                  │    (Node.js)        │
-                  └────────┬───────────┘
-                           │
-                  ┌────────▼────────┐
-                  │ ⚡ Azure         │
-                  │   Functions     │
-                  │ (Serverless)    │
-                  └────────────────┘
-
+                    ┌────────▼────────┐
+                    │ ⚡ Azure         │
+                    │   Functions     │
+                    │ (Serverless)    │
+                    └─────────────────┘
 ```
 
 ## 🛠️ Tecnologias Utilizadas
@@ -58,7 +55,6 @@ O sistema é composto por 5 microsserviços independentes que se comunicam atrav
 - **🔐 Auth Service**: Node.js + Express + MongoDB + JWT
 - **📦 Order Service**: Spring Boot + PostgreSQL + JPA
 - **📍 Tracking Service**: Node.js + Express + PostgreSQL + Swagger
-- **🔔 Notification Service**: Node.js + Express + RabbitMQ + Azure Functions
 - **🌐 API Gateway**: Spring Cloud Gateway
 
 ### **Infraestrutura**
@@ -126,7 +122,6 @@ Após a execução bem-sucedida, os serviços estarão disponíveis em:
 | **🔐 Auth Service** | http://localhost:3000 | Autenticação e autorização |
 | **📦 Order Service** | http://localhost:8080 | Gerenciamento de pedidos |
 | **📍 Tracking Service** | http://localhost:8081 | Rastreamento em tempo real |
-| **🔔 Notification Service** | http://localhost:3001 | Gerenciamento de notificações |
 | **📖 Tracking Docs** | http://localhost:8081/api/docs | Documentação Swagger |
 | **🐰 RabbitMQ** | http://localhost:15672 | Management UI |
 
@@ -154,11 +149,6 @@ backend/
 │   ├── package.json
 │   ├── README.md            # Documentação específica
 │   └── Dockerfile
-├── 📁 notification-service/  # Microsserviço de Notificações
-│   ├── src/
-│   ├── package.json
-│   ├── README.md            # Documentação específica
-│   └── Dockerfile
 ├── 📁 api-gateway/          # Gateway de APIs
 │   ├── src/
 │   ├── pom.xml
@@ -175,11 +165,10 @@ backend/
 ### **1. Verificação Rápida**
 ```bash
 # Health check de todos os serviços
-curl http://localhost:3000/health  # Auth
-curl http://localhost:8080/health  # Orders  
+curl http://localhost:3000/health       # Auth
+curl http://localhost:8080/health       # Orders  
 curl http://localhost:8081/api/tracking/health  # Tracking
-curl http://localhost:3001/health  # Notification
-curl http://localhost:8000/health  # Gateway
+curl http://localhost:8000/health       # Gateway
 ```
 
 ### **2. Teste do Tracking Service (Swagger)**
@@ -201,7 +190,6 @@ curl http://localhost:8000/health  # Gateway
 curl http://localhost:8000/api/tracking/health
 curl http://localhost:8000/api/auth/health
 curl http://localhost:8000/api/orders/health
-curl http://localhost:8000/api/notifications/health
 ```
 
 ## 🔧 Comandos Úteis
@@ -215,7 +203,6 @@ docker-compose logs -f
 docker-compose logs -f tracking-service
 docker-compose logs -f auth-service
 docker-compose logs -f order-service
-docker-compose logs -f notification-service
 
 # Parar todos os serviços
 docker-compose down
@@ -354,27 +341,9 @@ GET    ${API_BASE}/api/orders/{id}
 GET    ${API_BASE}/api/tracking/order/{id}/current
 GET    ${API_BASE}/api/tracking/order/{id}/history
 POST   ${API_BASE}/api/tracking/location
-
-// Notificações
-POST   ${API_BASE}/api/notifications/queue/email
-POST   ${API_BASE}/api/notifications/queue/push
-GET    ${API_BASE}/api/notifications/stats
 ```
 
-### **Exemplo de Integração Flutter**
-```dart
-class ApiService {
-  static const String baseUrl = 'http://localhost:8000';
-  
-  // Rastreamento em tempo real
-  Future<LocationData> getCurrentLocation(int orderId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/tracking/order/$orderId/current'),
-    );
-    return LocationData.fromJson(json.decode(response.body));
-  }
-}
-```
+
 
 ## 📝 Documentação dos Serviços
 
@@ -383,12 +352,18 @@ Cada microsserviço possui sua própria documentação detalhada:
 - **📍 Tracking Service**: `./tracking-service/README.md`
 - **🔐 Auth Service**: `./auth-service/README.md`
 - **📦 Order Service**: `./order-service/README.md`
-- **🔔 Notification Service**: `./notification-service/README.md`
 - **🌐 API Gateway**: `./api-gateway/README.md`
+
+## 🌟 Integração Serverless
+
+O sistema está preparado para integração com Azure Functions para processamento serverless de:
+- Notificações push e emails
+- Processamento de eventos assíncronos
+- Campanhas promocionais
+- Analytics e relatórios
+
+Para mais informações sobre a implementação serverless, consulte a pasta `../functions-sb/`.
 
 ## 📄 Licença
 
 Este projeto foi desenvolvido para fins acadêmicos como parte do trabalho de **Laboratório de Desenvolvimento de Dispositivos Móveis e Distribuídos**.
-
----
-
