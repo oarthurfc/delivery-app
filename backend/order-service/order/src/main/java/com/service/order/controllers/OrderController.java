@@ -78,8 +78,8 @@ public class OrderController {
     @PutMapping("/{id}/complete")
     public ResponseEntity<OrderResponseDTO> complete(
             @PathVariable Long id,
-            @RequestParam("imageUrl") String imageUrl) {
+            @Valid @RequestBody CompleteOrderDTO completeOrderDTO) {
         log.info("Recebida requisição para finalizar pedido ID {}", id);
-        return ResponseEntity.ok(orderService.completeOrder(id, imageUrl));
+        return ResponseEntity.ok(orderService.completeOrder(id, completeOrderDTO));
     }
 }

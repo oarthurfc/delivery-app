@@ -113,146 +113,33 @@ public class OrderService {
         return new PageImpl<>(dtos, pageable, ordersPage.getTotalElements());
     }
 
-    public OrderResponseDTO completeOrder(Long id, String imageUrl) {
-    log.info("Finalizando pedido com ID {}", id);
-    Order order = orderRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado com ID: " + id));
+    public OrderResponseDTO completeOrder(Long id, CompleteOrderDTO completeOrderDTO) {
+        log.info("Finalizando pedido com ID {}", id);
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado com ID: " + id));
 
-    if (order.getStatus() == OrderStatus.DELIVERIED) {
-        throw new IllegalStateException("Pedido já está finalizado");
-    }
-
-    order.setStatus(OrderStatus.DELIVERIED);
-    order.setImageUrl(imageUrl);
-    Order completed = orderRepository.save(order);
-
-    // Publicar evento de finalização
-    orderFinishedEventPublisher.publish(completed);
-
-    // Buscar informações do cliente e motorista no serviço de autenticação
-    String customerEmail = getCustomerEmail(completed.getCustomerId());
-    String customerName = getCustomerName(completed.getCustomerId()); // Novo método para buscar nome
-    
-    String motoristaEmail = getCustomerEmail(completed.getDriverId());
-    String motoristaName = getCustomerName(completed.getDriverId()); // Novo método para buscar nome
-
-    // Publicar notificações de email específicas para cliente e motorista
-    if (customerEmail != null && !customerEmail.isEmpty()) {
-        //eventPublisher.publishCustomerEmailNotification(completed, customerEmail, customerName);
-        log.info("Notificação de email enviada para cliente ID: {}, Email: {}", 
-                completed.getCustomerId(), customerEmail);
-    } else {
-        log.warn("Não foi possível enviar notificação de email para cliente ID: {}, email não encontrado",
-                completed.getCustomerId());
-    }
-    
-    if (motoristaEmail != null && !motoristaEmail.isEmpty()) {
-        //eventPublisher.publishDriverEmailNotification(completed, motoristaEmail, motoristaName);
-        log.info("Notificação de email enviada para motorista ID: {}, Email: {}", 
-                completed.getDriverId(), motoristaEmail);
-    } else {
-        log.warn("Não foi possível enviar notificação de email para motorista ID: {}, email não encontrado",
-                completed.getDriverId());
-    }
-    
-    // Enviar push notifications
-    //sendPushNotification(completed);
-    
-    return toDTO(completed);
-}
-
-/**
- * Método auxiliar para buscar nome do usuário (cliente ou motorista)
- * Implementar conforme sua integração com o serviço de autenticação
- */
-private String getCustomerName(Long userId) {
-    try {
-        // Implementar chamada para o serviço de autenticação para buscar o nome
-        // Exemplo:
-        // UserInfo userInfo = authServiceClient.getUserById(userId);
-        // return userInfo.getName();
-        
-        // Por enquanto, retornar null para usar o valor padrão nos templates
-        return "Renato";
-    } catch (Exception e) {
-        log.warn("Erro ao buscar nome do usuário ID: {}", userId, e);
-        return null;
-    }
-}
-    private String getFcmTokenFromOrder(Long orderId) {
-        try {
-            String url = "http://api-gateway:8000/api/auth/user/"+ orderId;
-    
-            OrderTokenResponse response = webClient.get()
-                .uri(url)
-                .retrieve()
-                .bodyToMono(OrderTokenResponse.class)
-                .block();
-            
-                log.info("FcmToken encontrado: {}", response.getFcmToken());
-            return response != null ? response.getFcmToken() : null;
-        } catch (Exception e) {
-            log.error("Erro ao buscar fcmToken para o pedido {}", orderId, e);
-            return null;
+        if (order.getStatus() == OrderStatus.DELIVERIED) {
+            throw new IllegalStateException("Pedido já está finalizado");
         }
-    }
-    
 
-    private void sendPushNotification(Order completed) {
-        log.info("Enviando notificação push para o cliente ID: {}", completed.getCustomerId());
+        order.setStatus(OrderStatus.DELIVERIED);
+        order.setImageUrl(completeOrderDTO.getImageUrl());
+        Order completed = orderRepository.save(order);
 
-        try {
-            //String fcmToken = "fnTJ06FQRxeXG-Bxp4eywu:APA91bG2cmCd9mx8_h93kH3QlyaPLmbUkk1sBxdsbWl-dCWyUrbN-8BQfAdayAeH-DQ8yon4UfFS4G8-Kkw1o9-s1XNepEemwdvAFgQ7jEOz5K_ziG1iJ8Y";
-            String fcmToken = getFcmTokenFromOrder(completed.getCustomerId());
-            String title = "Pedido Finalizado!";
-            String body = "Seu pedido #" + completed.getId() + " foi recebido com sucesso!";
-        
-            var payload = new PushNotificationPayload(fcmToken, title, body);
-        
-            webClient.post()
-                .uri("http://192.168.0.21:7071/api/PushNotificationFunction")
-                .bodyValue(payload)
-                .retrieve()
-                .bodyToMono(Void.class)
-                .block();
-        
-            log.info("Push notification enviada com sucesso para pedido ID: {}", completed.getId());
-        } catch (Exception e) {
-            log.error("Erro ao enviar push notification para pedido ID: {}", completed.getId(), e);
-        }
-        // Implementar a lógica para enviar notificação push
-    }// Requisição para a Azure Function de Push Notification
+        // Montar DTO do evento com dados do pedido e do CompleteOrderDTO
+        OrderFinishedEventDTO eventDTO = new OrderFinishedEventDTO();
+        eventDTO.setPedidoId(completed.getId());
+        eventDTO.setOrigem(completed.getOriginAddress() != null ? completed.getOriginAddress().getStreet() + ", " + completed.getOriginAddress().getNumber() : null);
+        eventDTO.setDestino(completed.getDestinationAddress() != null ? completed.getDestinationAddress().getStreet() + ", " + completed.getDestinationAddress().getNumber() : null);
+        eventDTO.setDescricao(completed.getDescription());
+        eventDTO.setDestinatario(null); // Preencher se houver campo destinatario
+        eventDTO.setPreco(null); // Preencher se houver campo preco
+        eventDTO.setClienteEmail(completeOrderDTO.getClienteEmail());
+        eventDTO.setMotoristaEmail(completeOrderDTO.getMotoristaEmail());
+        eventDTO.setFcmToken(completeOrderDTO.getFcmToken());
 
-
-
-    /**
-     * Busca o email do cliente no serviço de autenticação
-     * Este método pode ser implementado utilizando o auth-service
-     */
-    private String getCustomerEmail(Long customerId) {
-        try {
-            log.info("Buscando email do cliente ID: {}", customerId);
-
-            // Em um ambiente real, fariamos uma chamada ao auth-service para obter o email
-            // Exemplo:
-            /*
-             * UserDto user = webClient.get()
-             * .uri("http://auth-service/api/users/" + customerId)
-             * .retrieve()
-             * .bodyToMono(UserDto.class)
-             * .block();
-             * return user.getEmail();
-             */
-
-            // Para fins de demonstração, estamos retornando um email falso
-            // IMPORTANTE: Implementar mais tarde a integração real com o auth-service
-
-            return "cliente" + customerId + "@example.com";
-
-        } catch (Exception e) {
-            log.error("Erro ao buscar email do cliente ID: {}", customerId, e);
-            return null;
-        }
+        orderFinishedEventPublisher.publish(eventDTO);
+        return toDTO(completed);
     }
 
     // -----------------------
