@@ -26,7 +26,7 @@ class ApiService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://3fb4-2804-14c-5ba8-8b42-7724-7ab1-c801-2f2b.ngrok-free.app/api';
+    return 'https://70252f94f287.ngrok-free.app/api';
   }
 
   ApiService() {
@@ -68,7 +68,6 @@ class ApiService {
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      print('ApiService: Realizando login');
       final response = await _dio.post(
         '$_baseUrl/auth/login',
         data: {
@@ -79,63 +78,53 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final token = response.data['token'];
+        final userData = response.data['user'];
+        
         await _tokenService.saveToken(token);
         
-        // Decodificar o token JWT para obter informações do usuário
-        final parts = token.split('.');
-        if (parts.length == 3) {
-          final payload = parts[1];
-          final normalized = base64Url.normalize(payload);
-          final decoded = utf8.decode(base64Url.decode(normalized));
-          final data = json.decode(decoded);
-          
-          final role = data['role'];
-          final name = data['name']; // Fallback para nome
-          
-          // Verificar se o usuário já existe no banco de dados local
-          final db = await DatabaseHelper().database;
-          final result = await db.query(
-            'users',
-            where: 'username = ?',
-            whereArgs: [email],
-            limit: 1,
-          );
-          
-          int userId;
-          
-          if (result.isEmpty) {
-            // Usuário não existe localmente, vamos criá-lo
-            userId = DateTime.now().millisecondsSinceEpoch;
-            final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
-            
-            final user = User(
-              id: userId,
-              username: email,
-              name: name,
-              type: userType,
-            );
-            
-            // Salvar o usuário no repositório local
-            await _userRepository.save(user);
-          } else {
-            // Usuário já existe, usar o ID existente
-            userId = result.first['id'] as int;
-          }
-          
-          // Salvar o ID do usuário nas preferências compartilhadas para acesso rápido
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('current_user_id', userId);
-          
-          return {
-            'token': token,
-            'email': data['email'],
-            'role': role,
-            'name': name,
-            'userId': userId,
-          };
+        // Usar o ID retornado pela API
+        final userId = userData['id'] as int;
+        final userEmail = userData['email'] as String;
+        final userName = userData['name'] as String;
+        final userRole = userData['role'] as String;
+        
+        // Verificar se o usuário já existe no banco de dados local
+        final db = await DatabaseHelper().database;
+        final result = await db.query(
+          'users',
+          where: 'username = ?',
+          whereArgs: [userEmail],
+          limit: 1,
+        );
+        
+        final userType = userRole.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
+        
+        final user = User(
+          id: userId, // Usar o ID da API
+          username: userEmail,
+          name: userName,
+          type: userType,
+        );
+        
+        if (result.isEmpty) {
+          // Usuário não existe localmente, vamos criá-lo
+          await _userRepository.save(user);
+        } else {
+          // Usuário já existe, vamos atualizá-lo com os dados mais recentes
+          await _userRepository.update(user);
         }
         
-        return response.data;
+        // Salvar o ID do usuário nas preferências compartilhadas para acesso rápido
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('current_user_id', userId);
+        
+        return {
+          'token': token,
+          'email': userEmail,
+          'role': userRole,
+          'name': userName,
+          'userId': userId,
+        };
       }
       throw Exception('Falha no login');
     } on DioException catch (e) {
@@ -152,6 +141,7 @@ class ApiService {
       throw Exception('Erro ao fazer login. Tente novamente');
     }
   }
+
 
   Future<Map<String, dynamic>> register({
     required String name,
@@ -696,6 +686,35 @@ class ApiService {
       print('ApiService: Teste de conectividade FALHOU ❌');
       print('ApiService: Erro: $e');
       rethrow;
+    }
+  }
+
+  // Buscar usuário por ID no auth-service
+  Future<Map<String, dynamic>?> getUserById(int userId) async {
+    try {
+      final response = await _dio.get('$_baseUrl/auth/user/$userId');
+      if (response.statusCode == 200) {
+        return response.data;
+      }
+      return null;
+    } catch (e) {
+      print('ApiService: Erro ao buscar usuário $userId: $e');
+      return null;
+    }
+  }
+
+  // Completar entrega com body customizado
+  Future<int> completeOrderWithBody(int orderId, Map<String, dynamic> body) async {
+    try {
+      final response = await _dio.put(
+        '$_baseUrl/orders/$orderId/complete',
+        data: body,
+        options: Options(contentType: Headers.jsonContentType),
+      );
+      return response.statusCode == 200 ? 1 : 0;
+    } catch (e) {
+      print('ApiService: Erro ao completar entrega: $e');
+      return 0;
     }
   }
 }

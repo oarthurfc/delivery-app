@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:delivery/services/api/repos/OrderRepository2.dart';
+import 'package:http/http.dart' as http;
+import 'package:delivery/services/api/ApiService.dart';
 
 class DriverEndDeliveryScreen extends StatefulWidget {
   final Order order;
@@ -80,6 +82,17 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
     }
   }
 
+  Future<Map<String, dynamic>?> fetchUserData(int userId) async {
+    try {
+      // Use o ApiService para buscar o usuário
+      final apiService = ApiService();
+      return await apiService.getUserById(userId);
+    } catch (e) {
+      print('Erro ao buscar dados do usuário $userId: $e');
+      return null;
+    }
+  }
+
   Future<void> _finishDelivery() async {
     if (_capturedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -88,20 +101,44 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
       return;
     }
 
+    // Verificar se os IDs não são nulos
+    if (widget.order.customerId == null || widget.order.driverId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ID do cliente ou motorista não encontrado.')),
+      );
+      setState(() {
+        _isSaving = false;
+      });
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
 
     try {
-      // Converter imagem para base64
-      final bytes = await _capturedImage!.readAsBytes();
-      //final base64Image = base64Encode(bytes);
+      // Buscar dados do cliente e motorista
+      final clienteData = await fetchUserData(widget.order.customerId!);
+      final motoristaData = await fetchUserData(widget.order.driverId!);
 
-      // Aqui você pode fazer upload da imagem e obter a URL real
+      if (clienteData == null || motoristaData == null) {
+        throw Exception('Não foi possível obter dados do cliente ou motorista.');
+      }
+
+      // Upload da imagem e obtenção da URL
       final imageUrl = "https://nfrirozajhxljhkieidn.supabase.co/storage/v1/object/public/userphotos//foto_entrega_1.jpeg";
 
+      // Montar o body conforme o novo DTO
+      final body = {
+        "imageUrl": imageUrl,
+        "clienteEmail": clienteData["email"],
+        "motoristaEmail": motoristaData["email"],
+        "fcmToken": clienteData["fcmToken"] ?? ""
+      };
+
+      print("BODY COMPLETE REQUEST: $body");
       // Chamar a nova rota para finalizar entrega
-      final result = await _orderRepository.completeOrder(widget.order.id, imageUrl);
+      final result = await _orderRepository.completeOrderWithBody(widget.order.id, body);
 
       if (result == 1) {
         ScaffoldMessenger.of(context).showSnackBar(

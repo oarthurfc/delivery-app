@@ -213,6 +213,11 @@ class OrderRepository2 {
     }
   }
 
+  // Completar entrega com body customizado
+  Future<int> completeOrderWithBody(int orderId, Map<String, dynamic> body) async {
+    return await _apiService.completeOrderWithBody(orderId, body);
+  }
+
   // ===== CONVERSÕES DTO =====
 
   Map<String, dynamic> _orderToCreateDTO(Order order) {

@@ -27,7 +27,7 @@ class AuthService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://3fb4-2804-14c-5ba8-8b42-7724-7ab1-c801-2f2b.ngrok-free.app/api';
+    return 'https://70252f94f287.ngrok-free.app/api';
   }
 
   AuthService() {
@@ -99,63 +99,53 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final token = response.data['token'];
+        final userData = response.data['user'];
+        
         await _tokenService.saveToken(token);
         
-        // Decodificar o token JWT para obter informações do usuário
-        final parts = token.split('.');
-        if (parts.length == 3) {
-          final payload = parts[1];
-          final normalized = base64Url.normalize(payload);
-          final decoded = utf8.decode(base64Url.decode(normalized));
-          final data = json.decode(decoded);
-          
-          final role = data['role'];
-          final name = data['name']; // Fallback para nome
-          
-          // Verificar se o usuário já existe no banco de dados local
-          final db = await DatabaseHelper().database;
-          final result = await db.query(
-            'users',
-            where: 'username = ?',
-            whereArgs: [email],
-            limit: 1,
-          );
-          
-          int userId;
-          
-          if (result.isEmpty) {
-            // Usuário não existe localmente, vamos criá-lo
-            userId = DateTime.now().millisecondsSinceEpoch;
-            final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
-            
-            final user = User(
-              id: userId,
-              username: email,
-              name: name,
-              type: userType,
-            );
-            
-            // Salvar o usuário no repositório local
-            await _userRepository.save(user);
-          } else {
-            // Usuário já existe, usar o ID existente
-            userId = result.first['id'] as int;
-          }
-          
-          // Salvar o ID do usuário nas preferências compartilhadas para acesso rápido
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('current_user_id', userId);
-          
-          return {
-            'token': token,
-            'email': data['email'],
-            'role': role,
-            'name': name,
-            'userId': userId,
-          };
+        // Usar o ID retornado pela API
+        final userId = userData['id'] as int;
+        final userEmail = userData['email'] as String;
+        final userName = userData['name'] as String;
+        final userRole = userData['role'] as String;
+        
+        // Verificar se o usuário já existe no banco de dados local
+        final db = await DatabaseHelper().database;
+        final result = await db.query(
+          'users',
+          where: 'username = ?',
+          whereArgs: [userEmail],
+          limit: 1,
+        );
+        
+        final userType = userRole.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
+        
+        final user = User(
+          id: userId, // Usar o ID da API
+          username: userEmail,
+          name: userName,
+          type: userType,
+        );
+        
+        if (result.isEmpty) {
+          // Usuário não existe localmente, vamos criá-lo
+          await _userRepository.save(user);
+        } else {
+          // Usuário já existe, vamos atualizá-lo com os dados mais recentes
+          await _userRepository.update(user);
         }
         
-        return response.data;
+        // Salvar o ID do usuário nas preferências compartilhadas para acesso rápido
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('current_user_id', userId);
+        
+        return {
+          'token': token,
+          'email': userEmail,
+          'role': userRole,
+          'name': userName,
+          'userId': userId,
+        };
       }
       throw Exception('Falha no login');
     } on DioException catch (e) {
@@ -172,6 +162,7 @@ class AuthService {
       throw Exception('Erro ao fazer login. Tente novamente');
     }
   }
+
   Future<Map<String, dynamic>> register({
     required String name,
     required String email,
@@ -202,8 +193,15 @@ class AuthService {
         final token = response.data['token'];
         await _tokenService.saveToken(token);
         
-        // Criar um objeto User para salvar no banco de dados local
-        final userId = DateTime.now().millisecondsSinceEpoch; // ID temporário, será atualizado na sincronização
+        // Se a resposta do registro também retornar dados do usuário com ID,
+        // use-os aqui. Caso contrário, mantenha o ID temporário
+        int userId;
+        if (response.data['user'] != null && response.data['user']['id'] != null) {
+          userId = response.data['user']['id'] as int;
+        } else {
+          userId = DateTime.now().millisecondsSinceEpoch; // Fallback para ID temporário
+        }
+        
         final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
         
         final user = User(
@@ -241,6 +239,7 @@ class AuthService {
       throw Exception('Erro ao fazer registro. Tente novamente');
     }
   }
+
   Future<Map<String, dynamic>> getCurrentUser() async {
     try {
       // Primeiro, verificar se temos um usuário atual nas preferências
@@ -267,7 +266,7 @@ class AuthService {
         // Como a rota /validate não retorna o nome, vamos buscar do token
         final token = await _tokenService.getToken();
         if (token != null) {
-          // Decodificar o token JWT para obter o email
+          // Decodificar o token JWT para obter informações do usuário
           final parts = token.split('.');
           if (parts.length == 3) {
             final payload = parts[1];
@@ -277,7 +276,8 @@ class AuthService {
             
             final email = data['email'];
             final role = data['role'];
-            final name = email.split('@')[0]; // Fallback para nome
+            final name = data['name'] ?? email.split('@')[0]; // Usar nome do token ou fallback
+            final tokenUserId = data['userId']; // ID do token
             
             // Verificar se o usuário já existe no banco de dados local
             final db = await DatabaseHelper().database;
@@ -288,30 +288,26 @@ class AuthService {
               limit: 1,
             );
             
-            int newUserId;
+            int newUserId = tokenUserId ?? DateTime.now().millisecondsSinceEpoch;
+            
+            final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
+            final user = User(
+              id: newUserId,
+              username: email,
+              name: name,
+              type: userType,
+            );
             
             if (result.isEmpty) {
               // Usuário não existe localmente, vamos criá-lo
-              newUserId = DateTime.now().millisecondsSinceEpoch;
-              final userType = role.toLowerCase() == 'driver' ? UserType.DRIVER : UserType.CUSTOMER;
-              
-              final user = User(
-                id: newUserId,
-                username: email,
-                name: name,
-                type: userType,
-              );
-              
-              // Salvar o usuário no repositório local
               await _userRepository.save(user);
-              
-              // Atualizar preferências compartilhadas
-              await prefs.setInt('current_user_id', newUserId);
             } else {
-              // Usuário já existe, usar o ID existente
-              newUserId = result.first['id'] as int;
-              await prefs.setInt('current_user_id', newUserId);
+              // Usuário já existe, vamos atualizá-lo
+              await _userRepository.update(user);
             }
+            
+            // Atualizar preferências compartilhadas
+            await prefs.setInt('current_user_id', newUserId);
             
             return {
               'email': email,
@@ -328,6 +324,7 @@ class AuthService {
       throw Exception('Erro ao obter dados do usuário: $e');
     }
   }
+
   Future<void> logout() async {
     await _tokenService.deleteToken();
     
@@ -335,4 +332,4 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('current_user_id');
   }
-} 
+}
