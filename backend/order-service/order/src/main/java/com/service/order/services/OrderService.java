@@ -137,7 +137,7 @@ public class OrderService {
         eventDTO.setClienteEmail(completeOrderDTO.getClienteEmail());
         eventDTO.setMotoristaEmail(completeOrderDTO.getMotoristaEmail());
         eventDTO.setFcmToken(completeOrderDTO.getFcmToken());
-
+        
         orderFinishedEventPublisher.publish(eventDTO);
         return toDTO(completed);
     }
