@@ -55,7 +55,7 @@ resilience4j:
         baseConfig: default
 
 jwt:
-  secret: ${JWT_SECRET:ml2V8C#p9qK3&nX5^zA7@wR4tY6*hJ}  # Deve ser o mesmo secret usado no auth-service
+  secret: ${JWT_SECRET}  # Deve ser o mesmo secret usado no auth-service
 
 logging:
   level:
