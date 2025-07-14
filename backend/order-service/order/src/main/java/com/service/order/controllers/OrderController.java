@@ -15,6 +15,13 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import org.springframework.web.multipart.MultipartFile;
+
+import org.springframework.http.MediaType;
+
+
+
+
 
 @Slf4j
 @RestController
@@ -75,11 +82,12 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrdersByDriverId(driverId, pageable));
     }
 
-    @PutMapping("/{id}/complete")
+    @PutMapping(path = "/{id}/complete", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<OrderResponseDTO> complete(
             @PathVariable Long id,
-            @Valid @RequestBody CompleteOrderDTO completeOrderDTO) {
+            @RequestPart("data") @Valid CompleteOrderDTO completeOrderDTO,
+            @RequestPart("file") MultipartFile file) {
         log.info("Recebida requisição para finalizar pedido ID {}", id);
-        return ResponseEntity.ok(orderService.completeOrder(id, completeOrderDTO));
+        return ResponseEntity.ok(orderService.completeOrder(id, completeOrderDTO, file));
     }
 }
