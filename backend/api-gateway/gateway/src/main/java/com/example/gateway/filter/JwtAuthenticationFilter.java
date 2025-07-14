@@ -16,17 +16,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Component
-public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Config> {
+public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
 
-    @Value("${jwt.secret:ml2V8C#p9qK3&nX5^zA7@wR4tY6*hJ}")
-    private String secret;
+    @Value("${jwt.secret}")
+    private String jwtSecret;
 
     private final List<String> PUBLIC_PATHS = List.of(
             "/api/auth/login",
             "/api/auth/register"
     );
 
-    public JwtAuthFilter() {
+    public JwtAuthenticationFilter() {
         super(Config.class);
     }
 
@@ -36,19 +36,25 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getPath().toString();
 
-            // Skip validation for public paths
+            // Log para debug
+            System.out.println("JwtAuthenticationFilter: Processando requisição para: " + path);
+            
+            // Permitir rotas públicas
             if (PUBLIC_PATHS.stream().anyMatch(path::contains)) {
+                System.out.println("JwtAuthenticationFilter: Rota pública permitida: " + path);
                 return chain.filter(exchange);
             }
 
-            // Check for Authorization header
+            // Verifica header Authorization
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
+                System.out.println("JwtAuthenticationFilter: Header Authorization não encontrado");
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                 return exchange.getResponse().setComplete();
             }
 
             String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                System.out.println("JwtAuthenticationFilter: Formato de token inválido");
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                 return exchange.getResponse().setComplete();
             }
@@ -56,22 +62,23 @@ public class JwtAuthFilter extends AbstractGatewayFilterFactory<JwtAuthFilter.Co
             String token = authHeader.substring(7);
 
             try {
-                // Validate JWT and extract claims
-                SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+                SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
                 Claims claims = Jwts.parserBuilder()
                         .setSigningKey(key)
                         .build()
                         .parseClaimsJws(token)
                         .getBody();
 
-                // Add user info to headers for downstream services
+                // Adiciona informações do usuário nos headers para downstream
                 ServerHttpRequest modifiedRequest = exchange.getRequest().mutate()
-                        .header("X-User-Id", claims.get("userId", String.class))
-                        .header("X-User-Role", claims.get("role", String.class))
+                        .header("X-User-Id", String.valueOf(claims.get("userId")))  // Convertendo para String explicitamente
+                        .header("X-User-Role", String.valueOf(claims.get("role")))  // Convertendo para String explicitamente
                         .build();
 
+                System.out.println("JwtAuthenticationFilter: Token validado com sucesso para usuário: " + claims.get("userId"));
                 return chain.filter(exchange.mutate().request(modifiedRequest).build());
             } catch (Exception e) {
+                System.out.println("JwtAuthenticationFilter: Erro ao validar token: " + e.getMessage());
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                 return exchange.getResponse().setComplete();
             }

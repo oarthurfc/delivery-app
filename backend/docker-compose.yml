@@ -157,6 +157,7 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:${AUTH_SERVICE_PORT}
       - ORDER_SERVICE_URL=http://order-service:${ORDER_SERVICE_PORT}
       - TRACKING_SERVICE_URL=http://tracking-service:${TRACKING_SERVICE_PORT}
+      - JWT_SECRET=${JWT_SECRET}
     networks:
       - frontend
     ports:

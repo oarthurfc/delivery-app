@@ -9,7 +9,7 @@ module.exports = {
   mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/auth_db',
 
   // JWT
-  jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
+  jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   
   // Configurações de senha
