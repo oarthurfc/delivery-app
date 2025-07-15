@@ -61,7 +61,7 @@ delivery/
 │   └── README.md            # Documentação do backend
 │
 ├── cloud/                    # Infraestrutura cloud
-│   └── functions-sb/         # Funções serverless Azure
+│   └── functions/         # Funções serverless Azure
 │       ├── src/              # Código das funções
 │       ├── package.json      # Dependências Node.js
 │       └── host.json         # Configurações Azure Functions
