@@ -1,3 +1,6 @@
+![Flutter](https://img.shields.io/badge/Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white)
+![Dart](https://img.shields.io/badge/dart-%230175C2.svg?style=for-the-badge&logo=dart&logoColor=white)
+![SQLite](https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white)
 # 📱 Delivery Mobile App
 
 Aplicativo móvel Flutter para o sistema de entregas, desenvolvido como parte da primeira fase do projeto acadêmico. O app oferece interfaces dedicadas para **clientes** e **motoristas**, com funcionalidades completas de rastreamento, gestão de pedidos e integração com backend de microsserviços.
