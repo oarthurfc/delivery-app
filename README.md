@@ -3,41 +3,21 @@
 Um sistema completo de entregas desenvolvido como projeto acadêmico na PUC Minas, implementando uma arquitetura moderna com aplicativo móvel Flutter, microsserviços em backend e infraestrutura serverless na nuvem.
 
 ## 🎥 Demonstração
+
 > 📂 Os vídeos de demonstração estão organizados na pasta [`docs/videos`](docs/videos) deste repositório.
+
 <p align="center">
-  <table>
-    <tr>
-      <!-- Card 1 -->
-      <td align="center" style="padding: 10px;">
-        <a href="https://www.youtube.com/shorts/lNh5pR27yVE" target="_blank" style="text-decoration: none;">
-          <img src="https://img.youtube.com/vi/lNh5pR27yVE/hqdefault.jpg" width="300" alt="Vídeo 1" style="border-radius: 10px; border: 1px solid #ddd;">
-          <br>
-          <img src="https://img.shields.io/badge/YouTube-Assistir-red?style=flat-square&logo=youtube" alt="Assistir no YouTube">
-          <br>
-          <strong style="color: #333; font-family: Arial, sans-serif;">Desenvolvimento Mobile</strong>
-        </a>
-      </td>
-      <!-- Card 2 -->
-      <td align="center" style="padding: 10px;">
-        <a href="https://www.youtube.com/watch?v=tKkOWpcZqjU" target="_blank" style="text-decoration: none;">
-          <img src="https://img.youtube.com/vi/tKkOWpcZqjU/hqdefault.jpg" width="300" alt="Vídeo 2" style="border-radius: 10px; border: 1px solid #ddd;">
-          <br>
-          <img src="https://img.shields.io/badge/YouTube-Assistir-red?style=flat-square&logo=youtube" alt="Assistir no YouTube">
-          <br>
-          <strong style="color: #333; font-family: Arial, sans-serif;">Arquitetura de Microsserviços</strong>
-        </a>
-      </td>
-      <!-- Card 3 -->
-      <td align="center" style="padding: 10px;">
-        <a href="https://www.youtube.com/watch?v=tKkOWpcZqjU" target="_blank" style="text-decoration: none;">
-          <img src="https://img.youtube.com/vi/tKkOWpcZqjU/hqdefault.jpg" width="300" alt="Vídeo 3" style="border-radius: 10px; border: 1px solid #ddd;">
-          <br>
-          <img src="https://img.shields.io/badge/YouTube-Assistir-red?style=flat-square&logo=youtube" alt="Assistir no YouTube">
-          <br>
-          <strong style="color: #333; font-family: Arial, sans-serif;">Arquitetura Serverless</strong>
-        </a>
-      </td>
-  </table>
+  <a href="https://www.youtube.com/watch?v=tKkOWpcZqjU" target="_blank" style="text-decoration: none;">
+    <img src="https://img.youtube.com/vi/tKkOWpcZqjU/maxresdefault.jpg" width="600" alt="Demonstração Completa do Sistema" style="border-radius: 15px; border: 2px solid #ddd; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+    <br><br>
+    <img src="https://img.shields.io/badge/YouTube-Assistir%20Demonstração%20Completa-red?style=for-the-badge&logo=youtube" alt="Assistir no YouTube">
+    <br><br>
+    <strong style="color: #333; font-family: Arial, sans-serif; font-size: 18px;">🎬 Demonstração Completa: Mobile + Microsserviços + Serverless</strong>
+  </a>
+</p>
+
+<p align="center" style="color: #666; font-style: italic; margin-top: 10px;">
+  Vídeo demonstrando todas as funcionalidades do sistema integrado
 </p>
 
 ## 🚀 Visão Geral
@@ -52,6 +32,13 @@ O projeto Delivery é uma solução completa para gerenciamento e rastreamento d
 - 🔔 Sistema de notificações push e emails
 - 📸 Captura de fotos para comprovação de entrega
 - 🐰 Comunicação assíncrona via RabbitMQ
+
+## 🏗️ Prévia da arquitetura
+<p align="center">
+  <img src="docs/diagramas/arquitetura.jpeg" alt="Arquitetura do Sistema" width="800" style="border-radius: 15px; border: 2px solid #ddd; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+
+  Mais detalhes sobre a arquitetura estão disponíveis na documentação do 
+  **Backend**: [`backend/README.md`](backend/README.md)
 
 ## 📁 Estrutura do Projeto
 
@@ -69,21 +56,20 @@ delivery/
 │   ├── auth-service/         # Serviço de autenticação (Node.js)
 │   ├── order-service/        # Serviço de pedidos (Java 21)
 │   ├── tracking-service/     # Serviço de rastreamento (Node.js)
-│   └── setup-all.sh/.bat     # Scripts de configuração automática
+│   ├── setup-all.sh/.bat     # Scripts de configuração automática
+│   ├── .env.example          # Exemplo de variáveis de ambiente
+│   └── README.md            # Documentação do backend
 │
-├── functions-sb/             # Funções serverless (Azure Functions)
-│   ├── src/                  # Código das funções
-│   └── package.json          # Dependências das funções
-│
-├── cloud/                    # Infraestrutura serverless (em desenvolvimento)
-│   ├── functions/            # Funções serverless adicionais
-│   ├── infrastructure/       # Configurações de infraestrutura
-│   └── ci-cd/                # Pipelines de deploy
+├── cloud/                    # Infraestrutura cloud
+│   └── functions-sb/         # Funções serverless Azure
+│       ├── src/              # Código das funções
+│       ├── package.json      # Dependências Node.js
+│       └── host.json         # Configurações Azure Functions
 │
 └── docs/                     # Documentação do projeto
-    ├── api/                  # Documentação das APIs
-    ├── architecture/         # Diagramas de arquitetura
-    └── deployment/           # Guias de deployment
+  ├── diagramas/            # Diagramas de arquitetura
+  ├── especificacoes_entregas/ # Especificações das entregas
+  └── videos/               # Vídeos de demonstração
 ```
 
 ## 🏗️ Fases do Desenvolvimento
