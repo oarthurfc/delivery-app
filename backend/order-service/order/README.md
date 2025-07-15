@@ -29,14 +29,16 @@ Microsserviço de gerenciamento de pedidos do sistema de delivery, desenvolvido 
 ```
 order-service/
 ├── src/main/java/com/service/order/
+│   ├── config/            # Configurações do Spring
 │   ├── controllers/        # REST Controllers
 │   ├── dtos/              # Data Transfer Objects
+│   ├── enums/             # Enumerações (OrderStatus, etc.)
 │   ├── models/            # Entidades JPA
 │   ├── repositories/      # Repositórios Spring Data
 │   ├── services/          # Lógica de negócio
 │   └── OrderApplication.java
 ├── src/main/resources/
-│   └── application.yml    # Configurações
+│   └── application.properties    # Configurações
 ├── pom.xml
 ├── Dockerfile
 └── README.md

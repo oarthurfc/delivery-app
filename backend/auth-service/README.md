@@ -1,3 +1,6 @@
+![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=JSON%20web%20tokens)
+![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=for-the-badge&logo=mongodb&logoColor=white)
 # 🔐 Auth Service
 
 Microsserviço de autenticação e autorização do sistema de delivery, responsável por gerenciar usuários, login, registro e validação de JWT tokens.
@@ -28,11 +31,11 @@ Microsserviço de autenticação e autorização do sistema de delivery, respons
 ```
 auth-service/
 ├── src/
+│   ├── config/          # Configurações do serviço
 │   ├── controllers/     # Controladores das rotas
 │   ├── middleware/      # Middlewares de autenticação
 │   ├── models/         # Modelos do MongoDB
 │   ├── routes/         # Definição das rotas
-│   ├── services/       # Lógica de negócio
 │   ├── utils/          # Utilitários
 │   └── index.js        # Ponto de entrada
 ├── package.json

@@ -229,6 +229,9 @@ Para informações detalhadas sobre arquitetura, APIs e deployment, consulte:
 
 - **Backend**: [`backend/README.md`](backend/README.md)
 - **Tracking Service**: [`backend/tracking-service/README.md`](backend/tracking-service/README.md)
+- **API Gateway**: [`backend/api-gateway/README.md`](backend/api-gateway/README.md)
+- **Order Service**: [`backend/order-service/README.md`](backend/order-service/order/README.md)
+- **Auth Service**: [`backend/auth-service/README.md`](backend/auth-service/README.md)
 - **Especificações**: [`docs/especificacoes_entregas/`](docs/especificacoes_entregas/)
 
 ## 🛠️ Tecnologias Utilizadas

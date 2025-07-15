@@ -1,3 +1,5 @@
+![Java](https://img.shields.io/badge/java-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring](https://img.shields.io/badge/spring-%236DB33F.svg?style=for-the-badge&logo=spring&logoColor=white)
 # 🌐 API Gateway
 
 Gateway de APIs do sistema de delivery, desenvolvido com Spring Cloud Gateway. Atua como ponto de entrada único para todos os microsserviços, fornecendo roteamento, autenticação, circuit breaker e outras funcionalidades transversais.
@@ -28,9 +30,13 @@ Gateway de APIs do sistema de delivery, desenvolvido com Spring Cloud Gateway. A
 api-gateway/
 ├── src/main/java/com/example/gateway/
 │   ├── config/
-│   │   └── RouteConfiguration.java    # Configuração das rotas
+│   │   ├── RouteConfiguration.java        # Configuração das rotas
+│   │   ├── CorsConfig.java               # Configuração CORS
+│   │   └── CircuitBreakerConfiguration.java # Configuração do circuit breaker
 │   ├── controller/
-│   │   └── FallbackController.java    # Controllers de fallback
+│   │   ├── FallbackController.java      # Controllers de fallback
+│   │   ├── CircuitBreakerController.java # Controller do circuit breaker
+│   │   └── CircuitBreakerTestController.java # Testes do circuit breaker
 │   ├── filter/
 │   │   └── JwtAuthFilter.java         # Filtro de autenticação
 │   └── GatewayApplication.java
@@ -63,6 +69,27 @@ curl http://localhost:8000/api/orders
 
 # Tracking Service (via gateway)
 curl http://localhost:8000/api/tracking/health
+```
+
+## 🔄 Fluxo de Requisições
+
+```
+1. Cliente → API Gateway (porta 8000)
+2. Gateway → Validação JWT (se necessário)
+3. Gateway → Circuit Breaker check
+4. Gateway → Roteamento para microsserviço
+5. Microsserviço → Processamento
+6. Gateway ← Resposta do microsserviço
+7. Cliente ← Resposta final
+```
+
+### Em Caso de Falha
+```
+1. Falha no microsserviço
+2. Circuit Breaker ativado
+3. Retry automático (se configurado)
+4. Fallback response
+5. Cliente recebe resposta de erro amigável
 ```
 
 ## 🔒 Autenticação
@@ -199,27 +226,6 @@ curl http://localhost:8000/api/orders
 curl -H "Authorization: Bearer invalid-token" \
   http://localhost:8000/api/orders
 # Esperado: 401 Unauthorized
-```
-
-## 🔄 Fluxo de Requisições
-
-```
-1. Cliente → API Gateway (porta 8000)
-2. Gateway → Validação JWT (se necessário)
-3. Gateway → Circuit Breaker check
-4. Gateway → Roteamento para microsserviço
-5. Microsserviço → Processamento
-6. Gateway ← Resposta do microsserviço
-7. Cliente ← Resposta final
-```
-
-### Em Caso de Falha
-```
-1. Falha no microsserviço
-2. Circuit Breaker ativado
-3. Retry automático (se configurado)
-4. Fallback response
-5. Cliente recebe resposta de erro amigável
 ```
 
 ## 📊 Monitoramento
