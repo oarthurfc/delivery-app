@@ -117,7 +117,6 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
     });
 
     try {
-      // Buscar dados do cliente e motorista
       final clienteData = await fetchUserData(widget.order.customerId!);
       final motoristaData = await fetchUserData(widget.order.driverId!);
 
@@ -125,20 +124,22 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
         throw Exception('Não foi possível obter dados do cliente ou motorista.');
       }
 
-      // Upload da imagem e obtenção da URL
-      final imageUrl = "https://nfrirozajhxljhkieidn.supabase.co/storage/v1/object/public/userphotos//foto_entrega_1.jpeg";
-
-      // Montar o body conforme o novo DTO
-      final body = {
-        "imageUrl": imageUrl,
+      // Preparar dados
+      final completeOrderData = {
         "clienteEmail": clienteData["email"],
         "motoristaEmail": motoristaData["email"],
         "fcmToken": clienteData["fcmToken"] ?? ""
       };
 
-      print("BODY COMPLETE REQUEST: $body");
-      // Chamar a nova rota para finalizar entrega
-      final result = await _orderRepository.completeOrderWithBody(widget.order.id, body);
+      print("BODY COMPLETE REQUEST: $completeOrderData");
+
+      //CALL API
+      final apiService = ApiService();
+      final result = await apiService.completeOrderWithMultipart(
+        widget.order.id, 
+        completeOrderData, 
+        _capturedImage!
+      );
 
       if (result == 1) {
         ScaffoldMessenger.of(context).showSnackBar(
