@@ -138,7 +138,7 @@ app.serviceBusTopic('function-send-mail', {
                         Este é um e-mail automático, não responda esta mensagem.
                       </p>
                       <p style="margin: 8px 0 0 0; color: #cbd5e1; font-size: 12px;">
-                        © 2024 Delivery App - Todos os direitos reservados
+                        © 2025 Delivery App - Todos os direitos reservados
                       </p>
                     </td>
                   </tr>
