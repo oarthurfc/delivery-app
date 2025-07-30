@@ -134,16 +134,16 @@ public class SupabaseStorageService {
         int height = image.getHeight();
 
         double ratio = (double) width / height;
-        if (ratio < 0.8 || ratio > 1.2) {
-            throw new IllegalArgumentException("A imagem deve ser aproximadamente quadrada (razão entre largura e altura entre 0.8 e 1.2).");
-        }
+        // if (ratio < 0.8 || ratio > 1.2) {
+        //     throw new IllegalArgumentException("A imagem deve ser aproximadamente quadrada (razão entre largura e altura entre 0.8 e 1.2).");
+        // }
 
-        if (width < 200 || height < 200) {
-            throw new IllegalArgumentException("A imagem deve ter no mínimo 200x200 pixels.");
-        }
+        // if (width < 200 || height < 200) {
+        //     throw new IllegalArgumentException("A imagem deve ter no mínimo 200x200 pixels.");
+        // }
 
-        if (width > 2000 || height > 2000) {
-            throw new IllegalArgumentException("A imagem excede o tamanho máximo permitido de 2000x2000 pixels.");
-        }
+        // if (width > 2000 || height > 2000) {
+        //     throw new IllegalArgumentException("A imagem excede o tamanho máximo permitido de 2000x2000 pixels.");
+        // }
     }
 }

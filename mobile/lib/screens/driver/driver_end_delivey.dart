@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:delivery/database/repository/OrderRepository.dart';
 import 'package:delivery/models/order.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,9 @@ import 'package:geocoding/geocoding.dart';
 import 'package:delivery/services/api/repos/OrderRepository2.dart';
 import 'package:http/http.dart' as http;
 import 'package:delivery/services/api/ApiService.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 class DriverEndDeliveryScreen extends StatefulWidget {
   final Order order;
@@ -25,8 +29,10 @@ class DriverEndDeliveryScreen extends StatefulWidget {
 class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
   final OrderRepository2 _orderRepository = OrderRepository2();
   File? _capturedImage;
+  File? _compressedImage;
   final _picker = ImagePicker();
   bool _isSaving = false;
+  bool _isCompressing = false;
   String? _currentAddress;
   Position? _currentPosition;
 
@@ -73,12 +79,80 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
     }
   }
 
-  Future<void> _takePicture() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.camera);
-    if (pickedFile != null) {
+  Future<File?> _compressImage(File file) async {
+    try {
       setState(() {
-        _capturedImage = File(pickedFile.path);
+        _isCompressing = true;
       });
+
+      // Obter diretório temporário
+      final Directory tempDir = await getTemporaryDirectory();
+      final String fileName = path.basename(file.path);
+      final String targetPath = path.join(tempDir.path, 'compressed_$fileName');
+
+      // Comprimir a imagem
+      final XFile? compressedFile = await FlutterImageCompress.compressAndGetFile(
+        file.absolute.path,
+        targetPath,
+        quality: 70, // Qualidade de 0-100 (70% é um bom equilíbrio)
+        minWidth: 800, // Largura máxima
+        minHeight: 600, // Altura máxima
+        format: CompressFormat.jpeg, // Formato JPEG é menor que PNG
+      );
+
+      if (compressedFile != null) {
+        File compressed = File(compressedFile.path);
+        
+        // Verificar o tamanho do arquivo
+        int originalSize = await file.length();
+        int compressedSize = await compressed.length();
+        
+        print('Tamanho original: ${(originalSize / 1024 / 1024).toStringAsFixed(2)} MB');
+        print('Tamanho comprimido: ${(compressedSize / 1024 / 1024).toStringAsFixed(2)} MB');
+        print('Redução: ${((originalSize - compressedSize) / originalSize * 100).toStringAsFixed(1)}%');
+        
+        return compressed;
+      }
+      
+      return null;
+    } catch (e) {
+      print('Erro ao comprimir imagem: $e');
+      return null;
+    } finally {
+      setState(() {
+        _isCompressing = false;
+      });
+    }
+  }
+
+  Future<void> _takePicture() async {
+    final pickedFile = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 85, // Reduz qualidade na captura
+      maxWidth: 1200,   // Limita largura
+      maxHeight: 1200,  // Limita altura
+    );
+    
+    if (pickedFile != null) {
+      File originalFile = File(pickedFile.path);
+      
+      setState(() {
+        _capturedImage = originalFile;
+      });
+
+      // Comprimir a imagem
+      File? compressed = await _compressImage(originalFile);
+      
+      if (compressed != null) {
+        setState(() {
+          _compressedImage = compressed;
+        });
+      } else {
+        // Se falhar na compressão, usar a original
+        setState(() {
+          _compressedImage = originalFile;
+        });
+      }
     }
   }
 
@@ -94,7 +168,7 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
   }
 
   Future<void> _finishDelivery() async {
-    if (_capturedImage == null) {
+    if (_compressedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Capture uma imagem antes de finalizar.')),
       );
@@ -133,12 +207,16 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
 
       print("BODY COMPLETE REQUEST: $completeOrderData");
 
-      //CALL API
+      // Verificar tamanho do arquivo antes de enviar
+      int fileSize = await _compressedImage!.length();
+      print('Tamanho do arquivo a ser enviado: ${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB');
+
+      //CALL API com imagem comprimida
       final apiService = ApiService();
       final result = await apiService.completeOrderWithMultipart(
         widget.order.id, 
         completeOrderData, 
-        _capturedImage!
+        _compressedImage! // Usar imagem comprimida
       );
 
       if (result == 1) {
@@ -162,6 +240,21 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
         });
       }
     }
+  }
+
+  String _getFileSizeText() {
+    if (_compressedImage == null) return '';
+    
+    return FutureBuilder<int>(
+      future: _compressedImage!.length(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          double sizeMB = snapshot.data! / 1024 / 1024;
+          return Text('Tamanho: ${sizeMB.toStringAsFixed(2)} MB');
+        }
+        return const Text('Calculando tamanho...');
+      },
+    ).toString();
   }
 
   @override
@@ -252,12 +345,45 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      if (_capturedImage != null)
-                        Image.file(
-                          _capturedImage!,
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
+                      
+                      if (_isCompressing)
+                        const Column(
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 8),
+                            Text('Comprimindo imagem...'),
+                          ],
+                        )
+                      else if (_capturedImage != null)
+                        Column(
+                          children: [
+                            Image.file(
+                              _capturedImage!,
+                              height: 200,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                            const SizedBox(height: 8),
+                            // Mostrar informação de tamanho
+                            FutureBuilder<int>(
+                              future: _compressedImage?.length(),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData) {
+                                  double sizeMB = snapshot.data! / 1024 / 1024;
+                                  Color sizeColor = sizeMB > 5 ? Colors.red : Colors.green;
+                                  return Text(
+                                    'Tamanho: ${sizeMB.toStringAsFixed(2)} MB',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: sizeColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          ],
                         )
                       else
                         Container(
@@ -272,7 +398,7 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
                         ),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
-                        onPressed: _takePicture,
+                        onPressed: _isCompressing ? null : _takePicture,
                         icon: const Icon(Icons.camera_alt),
                         label: const Text('Tirar Foto'),
                         style: ElevatedButton.styleFrom(
@@ -293,7 +419,7 @@ class _DriverEndDeliveryScreenState extends State<DriverEndDeliveryScreen> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: _capturedImage != null ? _finishDelivery : null,
+                    onPressed: (_compressedImage != null && !_isCompressing) ? _finishDelivery : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
