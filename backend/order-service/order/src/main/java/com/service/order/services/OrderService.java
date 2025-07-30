@@ -152,6 +152,8 @@ public class OrderService {
         eventDTO.setClienteEmail(completeOrderDTO.getClienteEmail());
         eventDTO.setMotoristaEmail(completeOrderDTO.getMotoristaEmail());
         eventDTO.setFcmToken(completeOrderDTO.getFcmToken());
+        eventDTO.setBody("O pedido de ID " + completed.getId() + " foi finalizado com sucesso.");
+        eventDTO.setTitle("Pedido finalizado!");
 
         orderFinishedEventPublisher.publish(eventDTO);
         return toDTO(completed);
