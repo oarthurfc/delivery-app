@@ -17,4 +17,6 @@ public class OrderFinishedEventDTO {
     private String clienteEmail;
     private String motoristaEmail;
     private String fcmToken;
+    private String title;
+    private String body;
 } 
