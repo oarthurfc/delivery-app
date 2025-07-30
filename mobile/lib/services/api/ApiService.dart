@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user.dart';
 import '../../database/database_helper.dart';
+import 'package:http_parser/http_parser.dart';
 
 class ApiService {
   final Dio _dio = Dio();
@@ -26,7 +27,7 @@ class ApiService {
     } else if (Platform.isAndroid && runningOnEmulator) {
       return 'http://$_emulatorIp:$_port/api';
     }
-    return 'https://70252f94f287.ngrok-free.app/api';
+    return 'https://1a14c18f1e0b.ngrok-free.app/api';
   }
 
   ApiService() {
@@ -717,4 +718,41 @@ class ApiService {
       return 0;
     }
   }
+  // Completar entrega com multipart (imagem + dados)
+Future<int> completeOrderWithMultipart(
+  int orderId,
+  Map<String, dynamic> completeOrderData,
+  File imageFile,
+) async {
+  try {
+    // Preparar o FormData
+    final formData = FormData.fromMap({
+      'data': MultipartFile.fromString(
+        jsonEncode(completeOrderData),
+        contentType: MediaType('application', 'json'),
+      ),
+      'file': await MultipartFile.fromFile(
+        imageFile.path,
+        filename: 'delivery_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: MediaType('image', 'jpeg'),
+      ),
+    });
+
+    final response = await _dio.put(
+      '$_baseUrl/orders/$orderId/complete',
+      data: formData,
+      options: Options(
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      ),
+    );
+
+    print('ApiService: CompleteOrderWithMultipart - Status: ${response.statusCode}');
+    return response.statusCode == 200 ? 1 : 0;
+  } catch (e) {
+    print('ApiService: Erro ao completar entrega com multipart: $e');
+    return 0;
+  }
+}
 }

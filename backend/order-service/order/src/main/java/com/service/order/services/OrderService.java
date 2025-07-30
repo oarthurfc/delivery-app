@@ -19,6 +19,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+
+
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -27,6 +32,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderFinishedEventPublisher orderFinishedEventPublisher;
     private final WebClient webClient = WebClient.create();
+    private final SupabaseStorageService supabaseStorageService;
 
     public OrderResponseDTO createOrder(CreateOrderDTO dto) {
         log.info("Criando novo pedido para o cliente ID {}", dto.getCustomerId());
@@ -113,7 +119,7 @@ public class OrderService {
         return new PageImpl<>(dtos, pageable, ordersPage.getTotalElements());
     }
 
-    public OrderResponseDTO completeOrder(Long id, CompleteOrderDTO completeOrderDTO) {
+    public OrderResponseDTO completeOrder(Long id, CompleteOrderDTO completeOrderDTO, MultipartFile file) {
         log.info("Finalizando pedido com ID {}", id);
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido não encontrado com ID: " + id));
@@ -122,25 +128,35 @@ public class OrderService {
             throw new IllegalStateException("Pedido já está finalizado");
         }
 
+        final String fileName = "completed_order_photo_" + id;
+
+        String imgUrl;
+        try {
+            imgUrl = supabaseStorageService.uploadOrUpdateUserPhoto(file, fileName);
+        } catch (IOException e) {
+            log.error("Erro ao processar imagem para pedido ID {}: {}", id, e.getMessage());
+            throw new RuntimeException("Erro ao processar imagem do pedido.", e);
+        }
+
         order.setStatus(OrderStatus.DELIVERIED);
-        order.setImageUrl(completeOrderDTO.getImageUrl());
+        order.setImageUrl(imgUrl);
         Order completed = orderRepository.save(order);
 
-        // Montar DTO do evento com dados do pedido e do CompleteOrderDTO
         OrderFinishedEventDTO eventDTO = new OrderFinishedEventDTO();
         eventDTO.setPedidoId(completed.getId());
         eventDTO.setOrigem(completed.getOriginAddress() != null ? completed.getOriginAddress().getStreet() + ", " + completed.getOriginAddress().getNumber() : null);
         eventDTO.setDestino(completed.getDestinationAddress() != null ? completed.getDestinationAddress().getStreet() + ", " + completed.getDestinationAddress().getNumber() : null);
         eventDTO.setDescricao(completed.getDescription());
-        eventDTO.setDestinatario(null); // Preencher se houver campo destinatario
-        eventDTO.setPreco(null); // Preencher se houver campo preco
+        eventDTO.setDestinatario(null);
+        eventDTO.setPreco(null);
         eventDTO.setClienteEmail(completeOrderDTO.getClienteEmail());
         eventDTO.setMotoristaEmail(completeOrderDTO.getMotoristaEmail());
         eventDTO.setFcmToken(completeOrderDTO.getFcmToken());
-        
+
         orderFinishedEventPublisher.publish(eventDTO);
         return toDTO(completed);
     }
+
 
     // -----------------------
     // Métodos auxiliares
