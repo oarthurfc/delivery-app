@@ -1,271 +1,293 @@
 # 📦 Delivery System
 
-Um sistema completo de entregas desenvolvido como projeto acadêmico na PUC Minas, implementando uma arquitetura moderna com aplicativo móvel Flutter, microsserviços em backend e infraestrutura serverless na nuvem.
+A complete delivery management system developed as an academic project at PUC Minas, implementing a modern architecture with a Flutter mobile app, backend microservices, and serverless cloud infrastructure.
 
-## 🎥 Demonstração
+## 🎥 Demonstration
 
-> 📂 Os vídeos de demonstração estão organizados na pasta [`docs/videos`](docs/videos) deste repositório.
+> 📂 Demonstration videos are organized in the [`docs/videos`](docs/videos) folder of this repository.
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=tKkOWpcZqjU" target="_blank" style="text-decoration: none;">
-    <img src="https://img.youtube.com/vi/tKkOWpcZqjU/maxresdefault.jpg" width="600" alt="Demonstração Completa do Sistema" style="border-radius: 15px; border: 2px solid #ddd; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+    <img src="https://img.youtube.com/vi/tKkOWpcZqjU/maxresdefault.jpg" width="600" alt="Complete System Demo" style="border-radius: 15px; border: 2px solid #ddd; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
     <br><br>
-    <img src="https://img.shields.io/badge/YouTube-Assistir%20Demonstração%20Completa-red?style=for-the-badge&logo=youtube" alt="Assistir no YouTube">
+    <img src="https://img.shields.io/badge/YouTube-Watch%20Full%20Demo-red?style=for-the-badge&logo=youtube" alt="Watch on YouTube">
     <br><br>
-    <strong style="color: #333; font-family: Arial, sans-serif; font-size: 18px;">🎬 Demonstração Completa: Mobile + Microsserviços + Serverless</strong>
+    <strong style="color: #333; font-family: Arial, sans-serif; font-size: 18px;">🎬 Complete Demo: Mobile + Microservices + Serverless</strong>
   </a>
 </p>
 
 <p align="center" style="color: #666; font-style: italic; margin-top: 10px;">
-  Vídeo demonstrando todas as funcionalidades do sistema integrado
+  Video demonstrating all integrated system features
 </p>
 
-## 🚀 Visão Geral
+## 🚀 Overview
 
-O projeto Delivery é uma solução completa para gerenciamento e rastreamento de entregas, oferecendo interfaces dedicadas para clientes e motoristas. O sistema foi desenvolvido seguindo os princípios de arquitetura moderna, com foco em escalabilidade, performance e experiência do usuário.
+The Delivery project is a complete solution for delivery management and tracking, providing dedicated interfaces for customers and drivers. The system was developed following modern architecture principles, focusing on scalability, performance, and user experience.
 
-**Principais características:**
-- 📱 Aplicativo móvel híbrido desenvolvido em Flutter
-- 🔧 Arquitetura de microsserviços para o backend
-- ☁️ Integração com Azure Functions para processamento serverless
-- 📍 Rastreamento em tempo real com geolocalização
-- 🔔 Sistema de notificações push e emails
-- 📸 Captura de fotos para comprovação de entrega
-- 🐰 Comunicação assíncrona via RabbitMQ
+**Key features:**
 
-## 🏗️ Prévia da arquitetura
+* 📱 Hybrid mobile app developed with Flutter
+* 🔧 Microservices architecture for the backend
+* ☁️ Azure Functions integration for serverless processing
+* 📍 Real-time tracking with geolocation
+* 🔔 Push notifications and email system
+* 📸 Photo capture for delivery confirmation
+* 🐰 Asynchronous communication via RabbitMQ
+
+## 🏗️ Architecture Preview
+
 <p align="center">
-  <img src="docs/diagramas/arquitetura.jpeg" alt="Arquitetura do Sistema" width="800" style="border-radius: 15px; border: 2px solid #ddd; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <img src="docs/diagramas/arquitetura.jpeg" alt="System Architecture" width="800" style="border-radius: 15px; border: 2px solid #ddd; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
 
-  Mais detalhes sobre a arquitetura estão disponíveis na documentação do 
-  **Backend**: [`backend/README.md`](backend/README.md)
+More architecture details are available in the **Backend** documentation: [`backend/README.md`](backend/README.md)
 
-## 📁 Estrutura do Projeto
+</p>
+
+## 📁 Project Structure
 
 ```
 delivery/
-├── mobile/                   # Aplicativo móvel Flutter
-│   ├── lib/                  # Código fonte Dart
-│   ├── android/              # Configurações Android
-│   ├── ios/                  # Configurações iOS
-│   └── pubspec.yaml          # Dependências Flutter
+├── mobile/                   # Flutter mobile app
+│   ├── lib/                  # Dart source code
+│   ├── android/              # Android configuration
+│   ├── ios/                  # iOS configuration
+│   └── pubspec.yaml          # Flutter dependencies
 │
-├── backend/                  # Microsserviços e API Gateway
-│   ├── docker-compose.yml    # Orquestração dos serviços
-│   ├── api-gateway/          # Gateway de APIs (Spring Cloud Gateway)
-│   ├── auth-service/         # Serviço de autenticação (Node.js)
-│   ├── order-service/        # Serviço de pedidos (Java 21)
-│   ├── tracking-service/     # Serviço de rastreamento (Node.js)
-│   ├── setup-all.sh/.bat     # Scripts de configuração automática
-│   ├── .env.example          # Exemplo de variáveis de ambiente
-│   └── README.md            # Documentação do backend
+├── backend/                  # Microservices and API Gateway
+│   ├── docker-compose.yml    # Service orchestration
+│   ├── api-gateway/          # API Gateway (Spring Cloud Gateway)
+│   ├── auth-service/         # Authentication service (Node.js)
+│   ├── order-service/        # Order service (Java 21)
+│   ├── tracking-service/     # Tracking service (Node.js)
+│   ├── setup-all.sh/.bat     # Auto-setup scripts
+│   ├── .env.example          # Example environment variables
+│   └── README.md             # Backend documentation
 │
-├── cloud/                    # Infraestrutura cloud
-│   └── functions/         # Funções serverless Azure
-│       ├── src/              # Código das funções
-│       ├── package.json      # Dependências Node.js
-│       └── host.json         # Configurações Azure Functions
+├── cloud/                    # Cloud infrastructure
+│   └── functions/            # Azure Functions serverless
+│       ├── src/              # Functions source code
+│       ├── package.json      # Node.js dependencies
+│       └── host.json         # Azure Functions config
 │
-└── docs/                     # Documentação do projeto
-  ├── diagramas/            # Diagramas de arquitetura
-  ├── especificacoes_entregas/ # Especificações das entregas
-  └── videos/               # Vídeos de demonstração
+└── docs/                     # Project documentation
+  ├── diagramas/              # Architecture diagrams
+  ├── especificacoes_entregas/# Delivery specifications
+  └── videos/                 # Demo videos
 ```
 
-## 🏗️ Fases do Desenvolvimento
+## 🏗️ Development Phases
 
-### Fase 1: Desenvolvimento Mobile - [Docs](docs/especificacoes_entregas/entrega_01.md)
-A primeira fase focou na criação do aplicativo móvel usando Flutter, implementando interfaces distintas para clientes e motoristas. O app inclui funcionalidades como rastreamento em tempo real, histórico de pedidos, captura de fotos com geolocalização para comprovação de entrega, e armazenamento offline com SQLite. Também foram implementadas notificações push, sistema de preferências com Shared Preferences, e tratamento robusto de erros para cenários como falta de conectividade e permissões negadas.
+### Phase 1: Mobile Development - [Docs](docs/especificacoes_entregas/entrega_01.md)
 
-### Fase 2: Arquitetura de Microsserviços - [Docs](docs/especificacoes_entregas/entrega_02.md)
-Na segunda fase, foi desenvolvido o backend utilizando arquitetura de microsserviços, criando serviços independentes para autenticação (com JWT), gerenciamento de pedidos (CRUD completo), rastreamento em tempo real, e notificações. A comunicação entre serviços foi implementada tanto de forma síncrona (REST) quanto assíncrona (mensageria), com um API Gateway centralizando o roteamento e autenticação. Esta arquitetura garante escalabilidade, manutenibilidade e isolamento de falhas.
+The first phase focused on building the Flutter mobile app, implementing separate interfaces for customers and drivers. Features include real-time tracking, order history, photo capture with geolocation for delivery proof, and offline storage with SQLite. Push notifications, preferences via Shared Preferences, and robust error handling (connectivity issues, denied permissions) were also implemented.
 
-### Fase 3: Infraestrutura Serverless - [Docs](docs/especificacoes_entregas/entrega_03.md)
-A fase final integrou componentes serverless na arquitetura existente, complementando os microsserviços tradicionais com funções serverless (Azure Functions) e serviços gerenciados. Esta implementação inclui um sistema de notificações robusto baseado em funções serverless, integração entre RabbitMQ e Azure Functions para processamento assíncrono de emails e notificações push, e gerenciamento de eventos em tempo real. O resultado é uma infraestrutura híbrida que combina a confiabilidade dos microsserviços com a escalabilidade e o baixo custo operacional das funções serverless.
+### Phase 2: Microservices Architecture - [Docs](docs/especificacoes_entregas/entrega_02.md)
 
-## 🚀 Como Executar o Projeto
+In the second phase, the backend was developed using a microservices architecture, creating independent services for authentication (JWT), order management (full CRUD), real-time tracking, and notifications. Communication between services is both synchronous (REST) and asynchronous (messaging), with an API Gateway centralizing routing and authentication. This ensures scalability, maintainability, and fault isolation.
 
-### Pré-requisitos
-- Flutter SDK (versão 3.0+)
-- Dart SDK
-- Android Studio / Xcode (para desenvolvimento mobile)
-- Docker (para microsserviços)
-- Node.js 20+ (para serviços Node.js)
-- Java 21 JDK (para serviços Java)
-- Maven (incluído nos wrappers dos projetos)
-- Conta Azure (para funções serverless)
+### Phase 3: Serverless Infrastructure - [Docs](docs/especificacoes_entregas/entrega_03.md)
 
-### Executando o Mobile
+The final phase integrated serverless components into the existing architecture, complementing traditional microservices with Azure Functions. This includes a robust notification system using serverless functions, integration between RabbitMQ and Azure Functions for asynchronous email and push processing, and real-time event management. The result is a hybrid infrastructure combining microservices reliability with serverless scalability and low operational cost.
+
+## 🚀 Running the Project
+
+### Prerequisites
+
+* Flutter SDK (3.0+)
+* Dart SDK
+* Android Studio / Xcode (for mobile development)
+* Docker (for microservices)
+* Node.js 20+ (for Node.js services)
+* Java 21 JDK (for Java services)
+* Maven (included in project wrappers)
+* Azure account (for serverless functions)
+
+### Running the Mobile App
+
 ```bash
 cd mobile/
 flutter pub get
 flutter run
 ```
 
-### Executando os Microsserviços
+### Running the Microservices
 
-1. Navegue até a pasta backend:
+1. Go to the backend folder:
+
 ```bash
 cd backend/
 ```
 
-2. Configure as variáveis de ambiente:
+2. Set up environment variables:
+
 ```bash
 cp .env.example .env
-# Edite o .env conforme necessário
+# Edit .env as needed
 ```
 
-3. Execute o setup automático:
+3. Run the automatic setup:
 
 **Windows:**
+
 ```bash
 ./setup-all.bat
 ```
 
 **Linux/Mac:**
+
 ```bash
 chmod +x setup-all.sh
 ./setup-all.sh
 ```
 
-**Ou manualmente:**
+**Or manually:**
+
 ```bash
 docker-compose up --build -d
 ```
 
-O sistema iniciará os seguintes serviços:
-- **API Gateway** (porta 8000): Ponto de entrada único para todas as APIs
-- **Auth Service** (porta 3000): Gerencia autenticação e JWT
-- **Order Service** (porta 8080): Gerenciamento de pedidos
-- **Tracking Service** (porta 8081): Rastreamento em tempo real
-- **MongoDB**: Banco de dados para autenticação
-- **PostgreSQL**: Bancos de dados para pedidos e rastreamento
-- **RabbitMQ**: Sistema de mensageria
+Services that will start:
 
-### Deploy Serverless (Azure Functions)
+* **API Gateway** (port 8000): Single entry point for all APIs
+* **Auth Service** (port 3000): Manages authentication and JWT
+* **Order Service** (port 8080): Order management
+* **Tracking Service** (port 8081): Real-time tracking
+* **MongoDB**: Database for authentication
+* **PostgreSQL**: Databases for orders and tracking
+* **RabbitMQ**: Messaging system
 
-1. Navegue até a pasta de funções:
+### Deploying Serverless (Azure Functions)
+
+1. Go to the functions folder:
+
 ```bash
 cd functions-sb/
 ```
 
-2. Instale as dependências:
+2. Install dependencies:
+
 ```bash
 npm install
 ```
 
-3. Configure as variáveis de ambiente para Azure:
+3. Configure Azure environment variables:
+
 ```bash
-# Configure conforme sua conta Azure
+# Configure according to your Azure account
 ```
 
-4. Deploy para Azure:
+4. Deploy to Azure:
+
 ```bash
-# Comandos específicos de deploy Azure Functions
-func azure functionapp publish <nome-da-function-app>
+func azure functionapp publish <function-app-name>
 ```
 
-## 🌐 URLs dos Serviços
+## 🌐 Service URLs
 
-Após a execução bem-sucedida, os serviços estarão disponíveis em:
+After successful startup, services are available at:
 
-| Serviço | URL | Descrição |
-|---------|-----|-----------|
-| **🌐 API Gateway** | http://localhost:8000 | Ponto de entrada principal |
-| **🔐 Auth Service** | http://localhost:3000 | Autenticação e autorização |
-| **📦 Order Service** | http://localhost:8080 | Gerenciamento de pedidos |
-| **📍 Tracking Service** | http://localhost:8081 | Rastreamento em tempo real |
-| **📖 Tracking Docs** | http://localhost:8081/api/docs | Documentação Swagger |
-| **🐰 RabbitMQ** | http://localhost:15672 | Management UI |
+| Service                 | URL                                                              | Description                    |
+| ----------------------- | ---------------------------------------------------------------- | ------------------------------ |
+| **🌐 API Gateway**      | [http://localhost:8000](http://localhost:8000)                   | Main entry point               |
+| **🔐 Auth Service**     | [http://localhost:3000](http://localhost:3000)                   | Authentication & authorization |
+| **📦 Order Service**    | [http://localhost:8080](http://localhost:8080)                   | Order management               |
+| **📍 Tracking Service** | [http://localhost:8081](http://localhost:8081)                   | Real-time tracking             |
+| **📖 Tracking Docs**    | [http://localhost:8081/api/docs](http://localhost:8081/api/docs) | Swagger documentation          |
+| **🐰 RabbitMQ**         | [http://localhost:15672](http://localhost:15672)                 | Management UI                  |
 
-### Bancos de Dados
-| Banco | Host | Porta | Usuário | Senha |
-|-------|------|-------|---------|-------|
-| **PostgreSQL (Orders)** | localhost | 5432 | delivery_user | delivery_pass |
-| **PostgreSQL (Tracking)** | localhost | 5433 | root | root |
-| **MongoDB** | localhost | 27017 | root | rootpassword |
+### Databases
 
-## 🧪 Testando o Sistema
+| Database                  | Host      | Port  | User           | Password       |
+| ------------------------- | --------- | ----- | -------------- | -------------- |
+| **PostgreSQL (Orders)**   | localhost | 5432  | delivery\_user | delivery\_pass |
+| **PostgreSQL (Tracking)** | localhost | 5433  | root           | root           |
+| **MongoDB**               | localhost | 27017 | root           | rootpassword   |
 
-### Verificação Rápida
+## 🧪 Testing the System
+
+### Quick Health Check
+
 ```bash
-# Health check de todos os serviços
+# Health check for all services
 curl http://localhost:3000/health       # Auth
 curl http://localhost:8080/health       # Orders  
 curl http://localhost:8081/api/tracking/health  # Tracking
 curl http://localhost:8000/health       # Gateway
 ```
 
-### Teste via API Gateway
+### Test via API Gateway
+
 ```bash
-# Todas as requisições devem passar pelo gateway
+# All requests go through the gateway
 curl http://localhost:8000/api/auth/health
 curl http://localhost:8000/api/orders/health
 curl http://localhost:8000/api/tracking/health
 ```
 
-## 🔧 Comandos Úteis
+## 🔧 Useful Commands
 
 ```bash
-# Ver logs de todos os serviços
+# View logs for all services
 docker-compose logs -f
 
-# Ver logs de um serviço específico
+# View logs for a specific service
 docker-compose logs -f tracking-service
 
-# Parar todos os serviços
+# Stop all services
 docker-compose down
 
-# Reconstruir e reiniciar tudo
+# Rebuild and restart everything
 docker-compose down && docker-compose up --build -d
 
-# Ver status dos containers
+# Check container status
 docker-compose ps
 ```
 
-## 📚 Documentação
+## 📚 Documentation
 
-Para informações detalhadas sobre arquitetura, APIs e deployment, consulte:
+For detailed information about architecture, APIs, and deployment, see:
 
-- **Backend**: [`backend/README.md`](backend/README.md)
-- **Tracking Service**: [`backend/tracking-service/README.md`](backend/tracking-service/README.md)
-- **API Gateway**: [`backend/api-gateway/README.md`](backend/api-gateway/README.md)
-- **Order Service**: [`backend/order-service/README.md`](backend/order-service/order/README.md)
-- **Auth Service**: [`backend/auth-service/README.md`](backend/auth-service/README.md)
-- **Especificações**: [`docs/especificacoes_entregas/`](docs/especificacoes_entregas/)
+* **Backend**: [`backend/README.md`](backend/README.md)
+* **Tracking Service**: [`backend/tracking-service/README.md`](backend/tracking-service/README.md)
+* **API Gateway**: [`backend/api-gateway/README.md`](backend/api-gateway/README.md)
+* **Order Service**: [`backend/order-service/README.md`](backend/order-service/order/README.md)
+* **Auth Service**: [`backend/auth-service/README.md`](backend/auth-service/README.md)
+* **Specifications**: [`docs/especificacoes_entregas/`](docs/especificacoes_entregas/)
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️ Technologies Used
 
-- **Mobile:** Flutter, Dart, SQLite, GPS, Camera
-- **Backend:** Spring Boot, Node.js, PostgreSQL, MongoDB, RabbitMQ
-- **Cloud:** Azure Functions, Azure Service Bus
-- **DevOps:** Docker, Docker Compose, Maven
-- **Documentação:** Swagger/OpenAPI
+* **Mobile:** Flutter, Dart, SQLite, GPS, Camera
+* **Backend:** Spring Boot, Node.js, PostgreSQL, MongoDB, RabbitMQ
+* **Cloud:** Azure Functions, Azure Service Bus
+* **DevOps:** Docker, Docker Compose, Maven
+* **Documentation:** Swagger/OpenAPI
 
-## 📈 Características do Sistema
+## 📈 System Features
 
-### 🔒 Segurança
-- ✅ Autenticação JWT compartilhada entre serviços
-- ✅ Redes Docker isoladas
-- ✅ Validação de dados nas APIs
-- ✅ Sanitização de inputs
+### 🔒 Security
 
-### 📊 Escalabilidade
-- ✅ Arquitetura de microsserviços independentes
-- ✅ Comunicação assíncrona via RabbitMQ
-- ✅ Funções serverless para picos de demanda
-- ✅ Bancos de dados específicos por domínio
+* ✅ JWT authentication shared between services
+* ✅ Isolated Docker networks
+* ✅ API data validation
+* ✅ Input sanitization
 
-### 🔍 Observabilidade
-- ✅ Health checks em todos os serviços
-- ✅ Logs estruturados e centralizados
-- ✅ Documentação Swagger interativa
-- ✅ Monitoramento de recursos
+### 📊 Scalability
+
+* ✅ Independent microservices architecture
+* ✅ Asynchronous communication via RabbitMQ
+* ✅ Serverless functions for demand spikes
+* ✅ Domain-specific databases
+
+### 🔍 Observability
+
+* ✅ Health checks for all services
+* ✅ Structured, centralized logs
+* ✅ Interactive Swagger documentation
+* ✅ Resource monitoring
 
 ### 🚀 DevOps
-- ✅ Containerização completa com Docker
-- ✅ Orquestração via Docker Compose
-- ✅ Scripts de setup automatizados
-- ✅ Deploy serverless via Azure Functions
 
----
+* ✅ Full containerization with Docker
+* ✅ Orchestration via Docker Compose
+* ✅ Automated setup scripts
+* ✅ Serverless deployment via Azure Functions
