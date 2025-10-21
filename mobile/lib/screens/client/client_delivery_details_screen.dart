@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/order.dart';
 import '../../services/api/ApiService.dart';
 
@@ -12,17 +13,19 @@ class CustomerDeliveryDetailsScreen extends StatefulWidget {
   const CustomerDeliveryDetailsScreen({super.key, required this.order});
 
   @override
-  State<CustomerDeliveryDetailsScreen> createState() => _CustomerDeliveryDetailsScreenState();
+  State<CustomerDeliveryDetailsScreen> createState() =>
+      _CustomerDeliveryDetailsScreenState();
 }
 
-class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsScreen> {
+class _CustomerDeliveryDetailsScreenState
+    extends State<CustomerDeliveryDetailsScreen> {
   // Configuração de atualização - centralize aqui para facilitar mudanças
   static const int secondsPerUpdate = 30; // 30 segundos entre atualizações
-  
+
   bool _isImageExpanded = false;
   Timer? _trackingTimer;
   final ApiService _apiService = ApiService();
-  
+
   // Estado do rastreamento
   LatLng? _currentDriverLocation;
   bool _isTracking = false;
@@ -49,7 +52,9 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
       print('DeliveryDetails: Pedido em transporte, iniciando rastreamento...');
       _startTracking();
     } else {
-      print('DeliveryDetails: Pedido não está em transporte (${widget.order.status})');
+      print(
+        'DeliveryDetails: Pedido não está em transporte (${widget.order.status})',
+      );
       setState(() {
         _trackingStatus = _getStatusMessage(widget.order.status);
       });
@@ -74,7 +79,7 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
   void _startTracking() {
     print('DeliveryDetails: Iniciando rastreamento em tempo real');
     print('DeliveryDetails: Intervalo de atualização: ${secondsPerUpdate}s');
-    
+
     setState(() {
       _isTracking = true;
       _trackingStatus = 'Conectando ao rastreamento...';
@@ -84,8 +89,12 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
     _updateDriverLocation();
 
     // Inicia timer com o intervalo configurado
-    _trackingTimer = Timer.periodic(Duration(seconds: secondsPerUpdate), (timer) {
-      print('DeliveryDetails: Timer de rastreamento executado (${secondsPerUpdate}s)');
+    _trackingTimer = Timer.periodic(Duration(seconds: secondsPerUpdate), (
+      timer,
+    ) {
+      print(
+        'DeliveryDetails: Timer de rastreamento executado (${secondsPerUpdate}s)',
+      );
       _updateDriverLocation();
     });
   }
@@ -94,7 +103,7 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
     print('DeliveryDetails: Parando rastreamento');
     _trackingTimer?.cancel();
     _trackingTimer = null;
-    
+
     if (mounted) {
       setState(() {
         _isTracking = false;
@@ -107,15 +116,19 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
     if (!mounted) return;
 
     try {
-      print('DeliveryDetails: ===== INICIANDO ATUALIZAÇÃO DE LOCALIZAÇÃO =====');
+      print(
+        'DeliveryDetails: ===== INICIANDO ATUALIZAÇÃO DE LOCALIZAÇÃO =====',
+      );
       print('DeliveryDetails: ID do pedido: ${widget.order.id}');
       print('DeliveryDetails: Intervalo configurado: ${secondsPerUpdate}s');
-      
+
       // Primeiro verifica se o pedido está sendo rastreado
       print('DeliveryDetails: Verificando se pedido está sendo rastreado...');
-      final isBeingTracked = await _apiService.isOrderBeingTracked(widget.order.id);
+      final isBeingTracked = await _apiService.isOrderBeingTracked(
+        widget.order.id,
+      );
       print('DeliveryDetails: Pedido está sendo rastreado: $isBeingTracked');
-      
+
       if (!isBeingTracked) {
         print('DeliveryDetails: Pedido NÃO está sendo rastreado');
         if (mounted) {
@@ -128,12 +141,16 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
       }
 
       // Busca a localização atual
-      print('DeliveryDetails: Pedido ESTÁ sendo rastreado, buscando localização...');
-      final locationData = await _apiService.getCurrentLocation(widget.order.id);
+      print(
+        'DeliveryDetails: Pedido ESTÁ sendo rastreado, buscando localização...',
+      );
+      final locationData = await _apiService.getCurrentLocation(
+        widget.order.id,
+      );
       print('DeliveryDetails: Dados brutos recebidos: $locationData');
-      
+
       if (!mounted) return; // Verifica novamente antes de processar
-      
+
       if (locationData == null) {
         print('DeliveryDetails: ERRO - locationData é null');
         setState(() {
@@ -142,10 +159,10 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
         });
         return;
       }
-      
+
       print('DeliveryDetails: Verificando estrutura dos dados...');
       print('DeliveryDetails: locationData.keys: ${locationData.keys}');
-      
+
       if (!locationData.containsKey('data')) {
         print('DeliveryDetails: ERRO - Chave "data" não encontrada');
         setState(() {
@@ -154,10 +171,10 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
         });
         return;
       }
-      
+
       final dataSection = locationData['data'];
       print('DeliveryDetails: Seção "data": $dataSection');
-      
+
       if (dataSection == null) {
         print('DeliveryDetails: ERRO - Seção "data" é null');
         setState(() {
@@ -166,20 +183,22 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
         });
         return;
       }
-      
+
       if (!dataSection.containsKey('currentLocation')) {
         print('DeliveryDetails: ERRO - Chave "currentLocation" não encontrada');
-        print('DeliveryDetails: Chaves disponíveis em data: ${dataSection.keys}');
+        print(
+          'DeliveryDetails: Chaves disponíveis em data: ${dataSection.keys}',
+        );
         setState(() {
           _trackingStatus = 'Erro: localização atual não encontrada';
           _currentDriverLocation = null;
         });
         return;
       }
-      
+
       final location = dataSection['currentLocation'];
       print('DeliveryDetails: Dados de localização: $location');
-      
+
       if (location == null) {
         print('DeliveryDetails: ERRO - currentLocation é null');
         setState(() {
@@ -188,13 +207,13 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
         });
         return;
       }
-      
+
       // Extrair coordenadas
       final lat = location['latitude'];
       final lng = location['longitude'];
       print('DeliveryDetails: Latitude bruta: $lat (${lat.runtimeType})');
       print('DeliveryDetails: Longitude bruta: $lng (${lng.runtimeType})');
-      
+
       if (lat == null || lng == null) {
         print('DeliveryDetails: ERRO - Coordenadas são null');
         setState(() {
@@ -202,13 +221,13 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
         });
         return;
       }
-      
+
       final latDouble = lat is double ? lat : double.tryParse(lat.toString());
       final lngDouble = lng is double ? lng : double.tryParse(lng.toString());
-      
+
       print('DeliveryDetails: Latitude convertida: $latDouble');
       print('DeliveryDetails: Longitude convertida: $lngDouble');
-      
+
       if (latDouble == null || lngDouble == null) {
         print('DeliveryDetails: ERRO - Não foi possível converter coordenadas');
         setState(() {
@@ -216,17 +235,19 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
         });
         return;
       }
-      
+
       // Sucesso! Atualizar localização
       print('DeliveryDetails: SUCESSO - Atualizando localização no mapa');
       final now = DateTime.now();
       setState(() {
         _currentDriverLocation = LatLng(latDouble, lngDouble);
         _lastUpdate = now;
-        _trackingStatus = 'Motorista localizado - última atualização: ${_formatTime(now)}';
+        _trackingStatus =
+            'Motorista localizado - última atualização: ${_formatTime(now)}';
       });
-      print('DeliveryDetails: Localização atualizada com sucesso: $latDouble, $lngDouble');
-      
+      print(
+        'DeliveryDetails: Localização atualizada com sucesso: $latDouble, $lngDouble',
+      );
     } catch (e, stackTrace) {
       print('DeliveryDetails: ERRO EXCEPTION ao atualizar localização: $e');
       print('DeliveryDetails: Stack trace: $stackTrace');
@@ -236,7 +257,7 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
         });
       }
     }
-    
+
     print('DeliveryDetails: ===== FIM DA ATUALIZAÇÃO DE LOCALIZAÇÃO =====');
   }
 
@@ -296,11 +317,7 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
           widget.order.originAddress.latitude,
           widget.order.originAddress.longitude,
         ),
-        child: const Icon(
-          Icons.location_on,
-          color: Colors.blue,
-          size: 40,
-        ),
+        child: const Icon(Icons.location_on, color: Colors.blue, size: 40),
       ),
       // Marcador de destino
       Marker(
@@ -308,11 +325,7 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
           widget.order.destinationAddress.latitude,
           widget.order.destinationAddress.longitude,
         ),
-        child: const Icon(
-          Icons.flag,
-          color: Colors.red,
-          size: 40,
-        ),
+        child: const Icon(Icons.flag, color: Colors.red, size: 40),
       ),
     ];
 
@@ -384,14 +397,22 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
     if (_currentDriverLocation != null) {
       // Centraliza entre motorista e destino
       return LatLng(
-        (_currentDriverLocation!.latitude + widget.order.destinationAddress.latitude) / 2,
-        (_currentDriverLocation!.longitude + widget.order.destinationAddress.longitude) / 2,
+        (_currentDriverLocation!.latitude +
+                widget.order.destinationAddress.latitude) /
+            2,
+        (_currentDriverLocation!.longitude +
+                widget.order.destinationAddress.longitude) /
+            2,
       );
     } else {
       // Centraliza entre origem e destino
       return LatLng(
-        (widget.order.originAddress.latitude + widget.order.destinationAddress.latitude) / 2,
-        (widget.order.originAddress.longitude + widget.order.destinationAddress.longitude) / 2,
+        (widget.order.originAddress.latitude +
+                widget.order.destinationAddress.latitude) /
+            2,
+        (widget.order.originAddress.longitude +
+                widget.order.destinationAddress.longitude) /
+            2,
       );
     }
   }
@@ -425,20 +446,35 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
               height: 300,
               child: Stack(
                 children: [
-                  FlutterMap(
+                    FlutterMap(
                     options: MapOptions(
                       center: _getMapCenter(),
                       zoom: _currentDriverLocation != null ? 14 : 13,
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.app',
+                      urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName:
+                        'br.com.delivery.app/1.0 (contact: renatomatosapbusiness@gmail.com)',
                       ),
                       MarkerLayer(markers: _buildMarkers()),
                       PolylineLayer(polylines: _buildPolylines()),
+                      RichAttributionWidget(
+                      attributions: [
+                        TextSourceAttribution(
+                        '© OpenStreetMap contributors',
+                        onTap: () async {
+                          final uri = Uri.parse('https://www.openstreetmap.org/copyright');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        ),
+                      ],
+                      ),
                     ],
-                  ),
+                    ),
                   // Status do rastreamento
                   if (order.status == OrderStatus.ON_COURSE)
                     Positioned(
@@ -459,7 +495,10 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
                                 width: 12,
                                 height: 12,
                                 decoration: BoxDecoration(
-                                  color: _currentDriverLocation != null ? Colors.green : Colors.orange,
+                                  color:
+                                      _currentDriverLocation != null
+                                          ? Colors.green
+                                          : Colors.orange,
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -491,8 +530,8 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
                   Row(
                     children: [
                       Icon(
-                        order.status == OrderStatus.DELIVERIED 
-                            ? Icons.check_circle 
+                        order.status == OrderStatus.DELIVERIED
+                            ? Icons.check_circle
                             : Icons.delivery_dining,
                         color: statusColor,
                         size: 30,
@@ -526,7 +565,11 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.gps_fixed, color: Colors.blue.shade700, size: 20),
+                              Icon(
+                                Icons.gps_fixed,
+                                color: Colors.blue.shade700,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 'Rastreamento em Tempo Real',
@@ -580,10 +623,7 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    order.description,
-                    style: textTheme.bodyLarge,
-                  ),
+                  Text(order.description, style: textTheme.bodyLarge),
                   const SizedBox(height: 16),
 
                   // Endereço de origem
@@ -632,19 +672,26 @@ class _CustomerDeliveryDetailsScreenState extends State<CustomerDeliveryDetailsS
                               _isImageExpanded = !_isImageExpanded;
                             });
                           },
-                          child: order.imageUrl.startsWith('http')
-                              ? Image.network(
-                                  order.imageUrl,
-                                  width: double.infinity,
-                                  height: _isImageExpanded ? null : 200,
-                                  fit: _isImageExpanded ? BoxFit.contain : BoxFit.cover,
-                                )
-                              : Image.file(
-                                  File(order.imageUrl),
-                                  width: double.infinity,
-                                  height: _isImageExpanded ? null : 200,
-                                  fit: _isImageExpanded ? BoxFit.contain : BoxFit.cover,
-                                ),
+                          child:
+                              order.imageUrl.startsWith('http')
+                                  ? Image.network(
+                                    order.imageUrl,
+                                    width: double.infinity,
+                                    height: _isImageExpanded ? null : 200,
+                                    fit:
+                                        _isImageExpanded
+                                            ? BoxFit.contain
+                                            : BoxFit.cover,
+                                  )
+                                  : Image.file(
+                                    File(order.imageUrl),
+                                    width: double.infinity,
+                                    height: _isImageExpanded ? null : 200,
+                                    fit:
+                                        _isImageExpanded
+                                            ? BoxFit.contain
+                                            : BoxFit.cover,
+                                  ),
                         ),
                       ],
                     ),

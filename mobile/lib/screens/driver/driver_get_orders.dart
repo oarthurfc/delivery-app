@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:delivery/services/api/repos/OrderRepository2.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/order.dart';
 import '../../widgets/common/app_bar_widget.dart';
 import 'driver_delivery_details_screen.dart';
@@ -88,7 +89,7 @@ class _GetOrderScreenState extends State<GetOrderScreen> {
                   children: [
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.app',
+                      userAgentPackageName: 'br.com.delivery.app/1.0 (contact: renatomatosapbusiness@gmail.com)',
                     ),
                     MarkerLayer(
                       markers: [
@@ -134,6 +135,19 @@ class _GetOrderScreenState extends State<GetOrderScreen> {
                         ),
                       ],
                     ),
+                     RichAttributionWidget(
+                      attributions: [
+                        TextSourceAttribution(
+                        '© OpenStreetMap contributors',
+                        onTap: () async {
+                          final uri = Uri.parse('https://www.openstreetmap.org/copyright');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        ),
+                      ],
+                      ),
                   ],
                 ),
               ),

@@ -411,7 +411,7 @@ class _DriverDeliveryDetailsScreenState extends State<DriverDeliveryDetailsScree
                         children: [
                           TileLayer(
                             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.example.app',
+                            userAgentPackageName: 'br.com.delivery.app/1.0 (contact: renatomatosapbusiness@gmail.com)',
                           ),
                           MarkerLayer(
                             markers: [

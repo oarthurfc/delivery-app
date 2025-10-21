@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:delivery/services/api/repos/OrderRepository2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -5,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 
 import '../../models/address.dart';
@@ -15,7 +18,7 @@ enum PublishOrderStep {
   selectAddresses,
   confirmAddresses,
   addDescription,
-  publishing
+  publishing,
 }
 
 class PublishOrderScreen extends StatefulWidget {
@@ -31,25 +34,26 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
   final _destinationController = TextEditingController();
   final _descriptionController = TextEditingController();
   final MapController _mapController = MapController();
-  
+  Timer? _debounce;
+
   final OrderRepository2 _orderRepository = OrderRepository2();
-  
+
   // Controle de etapas
   PublishOrderStep _currentStep = PublishOrderStep.selectAddresses;
   bool _isLoading = false;
   String? _errorMessage;
-  
+
   // Variáveis para o mapa
   LatLng? _originLatLng;
   LatLng? _destinationLatLng;
   List<LatLng> _routePoints = [];
-  
+
   // Variáveis para autocomplete
   List<String> _originSuggestions = [];
   List<String> _destinationSuggestions = [];
   bool _showOriginSuggestions = false;
   bool _showDestinationSuggestions = false;
-  
+
   // Foco dos campos
   final FocusNode _originFocusNode = FocusNode();
   final FocusNode _destinationFocusNode = FocusNode();
@@ -69,7 +73,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
         });
       }
     });
-    
+
     _destinationFocusNode.addListener(() {
       if (!_destinationFocusNode.hasFocus) {
         setState(() {
@@ -102,12 +106,17 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
 
   Future<List<String>> _getAddressSuggestions(String query) async {
     if (query.length < 3) return [];
-    
+
     try {
       final response = await http.get(
-        Uri.parse('https://nominatim.openstreetmap.org/search?format=json&q=$query&limit=5&countrycodes=br'),
+        Uri.parse(
+          'https://nominatim.openstreetmap.org/search?format=json&q=$query&limit=5&countrycodes=br',
+        ),
+        headers: {
+          'User-Agent': 'Delivery/1.0 (renatomatosapbusiness@gmail.com)',
+        },
       );
-      
+
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         return data.map((item) => item['display_name'].toString()).toList();
@@ -119,24 +128,23 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
   }
 
   Future<void> _onOriginChanged(String value) async {
-    if (!_canEditAddresses()) return;
-    
-    if (value.length >= 3) {
-      final suggestions = await _getAddressSuggestions(value);
-      setState(() {
-        _originSuggestions = suggestions;
-        _showOriginSuggestions = true;
-      });
-    } else {
-      setState(() {
-        _showOriginSuggestions = false;
-      });
-    }
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+    _debounce = Timer(const Duration(seconds: 2), () async {
+      // Só busca após 500ms sem digitar
+      if (value.length >= 3) {
+        final suggestions = await _getAddressSuggestions(value);
+        setState(() {
+          _originSuggestions = suggestions;
+          _showOriginSuggestions = true;
+        });
+      }
+    });
   }
 
   Future<void> _onDestinationChanged(String value) async {
     if (!_canEditAddresses()) return;
-    
+
     if (value.length >= 3) {
       final suggestions = await _getAddressSuggestions(value);
       setState(() {
@@ -150,7 +158,9 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
     }
   }
 
-  Future<Map<String, double>?> _getCoordinatesFromAddress(String address) async {
+  Future<Map<String, double>?> _getCoordinatesFromAddress(
+    String address,
+  ) async {
     try {
       List<Location> locations = await locationFromAddress(address);
       if (locations.isNotEmpty) {
@@ -170,7 +180,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
     final coords = await _getCoordinatesFromAddress(address);
     if (coords != null) {
       final latLng = LatLng(coords['latitude']!, coords['longitude']!);
-      
+
       setState(() {
         if (isOrigin) {
           _originLatLng = latLng;
@@ -189,24 +199,30 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
 
       try {
         final response = await http.get(
-          Uri.parse('https://router.project-osrm.org/route/v1/driving/'
-              '${_originLatLng!.longitude},${_originLatLng!.latitude};'
-              '${_destinationLatLng!.longitude},${_destinationLatLng!.latitude}'
-              '?overview=full&geometries=geojson'),
+          Uri.parse(
+            'https://router.project-osrm.org/route/v1/driving/'
+            '${_originLatLng!.longitude},${_originLatLng!.latitude};'
+            '${_destinationLatLng!.longitude},${_destinationLatLng!.latitude}'
+            '?overview=full&geometries=geojson',
+          ),
         );
-        
+
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           if (data['routes'].isNotEmpty) {
             final route = data['routes'][0];
             final geometry = route['geometry']['coordinates'] as List;
-            
+
             setState(() {
-              _routePoints = geometry
-                  .map((coord) => LatLng(coord[1].toDouble(), coord[0].toDouble()))
-                  .toList();
+              _routePoints =
+                  geometry
+                      .map(
+                        (coord) =>
+                            LatLng(coord[1].toDouble(), coord[0].toDouble()),
+                      )
+                      .toList();
             });
-            
+
             _centerMapOnPoints();
           }
         }
@@ -225,8 +241,13 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
 
   void _centerMapOnPoints() {
     if (_originLatLng != null && _destinationLatLng != null) {
-      final bounds = LatLngBounds.fromPoints([_originLatLng!, _destinationLatLng!]);
-      _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)));
+      final bounds = LatLngBounds.fromPoints([
+        _originLatLng!,
+        _destinationLatLng!,
+      ]);
+      _mapController.fitCamera(
+        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
+      );
     } else if (_originLatLng != null) {
       _mapController.move(_originLatLng!, 15);
     } else if (_destinationLatLng != null) {
@@ -241,23 +262,24 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
 
     switch (_currentStep) {
       case PublishOrderStep.selectAddresses:
-        if (_originController.text.isEmpty || _destinationController.text.isEmpty) {
+        if (_originController.text.isEmpty ||
+            _destinationController.text.isEmpty) {
           setState(() {
             _errorMessage = 'Por favor, preencha ambos os endereços';
           });
           return;
         }
-        
+
         // Obter coordenadas e calcular rota
         await _updateMapWithAddress(_originController.text, true);
         await _updateMapWithAddress(_destinationController.text, false);
         await _updateRoute();
-        
+
         setState(() {
           _currentStep = PublishOrderStep.confirmAddresses;
         });
         break;
-        
+
       case PublishOrderStep.confirmAddresses:
         setState(() {
           _currentStep = PublishOrderStep.addDescription;
@@ -267,7 +289,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
           _descriptionFocusNode.requestFocus();
         });
         break;
-        
+
       case PublishOrderStep.addDescription:
         if (_descriptionController.text.isEmpty) {
           setState(() {
@@ -277,7 +299,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
         }
         await _publishOrder();
         break;
-        
+
       case PublishOrderStep.publishing:
         break;
     }
@@ -298,13 +320,13 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
           _destinationLatLng = null;
         });
         break;
-        
+
       case PublishOrderStep.addDescription:
         setState(() {
           _currentStep = PublishOrderStep.confirmAddresses;
         });
         break;
-        
+
       default:
         break;
     }
@@ -319,14 +341,18 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('current_user_id');
-      
+
       if (userId == null) {
         throw Exception('Usuário não encontrado');
       }
 
-      final originCoords = await _getCoordinatesFromAddress(_originController.text);
-      final destCoords = await _getCoordinatesFromAddress(_destinationController.text);
-      
+      final originCoords = await _getCoordinatesFromAddress(
+        _originController.text,
+      );
+      final destCoords = await _getCoordinatesFromAddress(
+        _destinationController.text,
+      );
+
       if (originCoords == null || destCoords == null) {
         throw Exception('Não foi possível localizar um dos endereços');
       }
@@ -334,7 +360,10 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
       final originParts = _originController.text.split(',');
       final originAddress = Address(
         id: 0,
-        street: originParts.isNotEmpty ? originParts[0].trim() : _originController.text,
+        street:
+            originParts.isNotEmpty
+                ? originParts[0].trim()
+                : _originController.text,
         number: originParts.length > 1 ? originParts[1].trim() : '',
         neighborhood: originParts.length > 2 ? originParts[2].trim() : '',
         city: originParts.length > 3 ? originParts[3].trim() : '',
@@ -345,7 +374,10 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
       final destParts = _destinationController.text.split(',');
       final destinationAddress = Address(
         id: 0,
-        street: destParts.isNotEmpty ? destParts[0].trim() : _destinationController.text,
+        street:
+            destParts.isNotEmpty
+                ? destParts[0].trim()
+                : _destinationController.text,
         number: destParts.length > 1 ? destParts[1].trim() : '',
         neighborhood: destParts.length > 2 ? destParts[2].trim() : '',
         city: destParts.length > 3 ? destParts[3].trim() : '',
@@ -362,9 +394,9 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
         description: _descriptionController.text,
         imageUrl: '',
       );
-      
+
       final createdOrder = await _orderRepository.save(order);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -372,7 +404,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        
+
         Navigator.pop(context);
       }
     } catch (e) {
@@ -380,7 +412,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
         _errorMessage = 'Erro ao publicar pedido: $e';
         _currentStep = PublishOrderStep.addDescription;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -408,7 +440,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
     required bool isOrigin,
   }) {
     final bool isEnabled = _canEditAddresses();
-    
+
     return Column(
       children: [
         TextFormField(
@@ -421,24 +453,25 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
             hintStyle: const TextStyle(color: Colors.grey),
             border: const OutlineInputBorder(),
             prefixIcon: Icon(icon),
-            suffixIcon: controller.text.isNotEmpty && isEnabled
-                ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      controller.clear();
-                      setState(() {
-                        if (isOrigin) {
-                          _originLatLng = null;
-                          _showOriginSuggestions = false;
-                        } else {
-                          _destinationLatLng = null;
-                          _showDestinationSuggestions = false;
-                        }
-                        _routePoints.clear();
-                      });
-                    },
-                  )
-                : null,
+            suffixIcon:
+                controller.text.isNotEmpty && isEnabled
+                    ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        controller.clear();
+                        setState(() {
+                          if (isOrigin) {
+                            _originLatLng = null;
+                            _showOriginSuggestions = false;
+                          } else {
+                            _destinationLatLng = null;
+                            _showDestinationSuggestions = false;
+                          }
+                          _routePoints.clear();
+                        });
+                      },
+                    )
+                    : null,
           ),
           onChanged: isEnabled ? onChanged : null,
         ),
@@ -498,18 +531,15 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
             ],
           ),
         ),
-        
+
         // Título da etapa
         Text(
           _getStepTitle(),
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
-        
+
         // Mensagem de erro
         if (_errorMessage != null)
           Container(
@@ -526,7 +556,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
               textAlign: TextAlign.center,
             ),
           ),
-        
+
         // Campos de endereço (sempre visíveis)
         _buildAddressField(
           controller: _originController,
@@ -540,7 +570,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
           isOrigin: true,
         ),
         const SizedBox(height: 16),
-        
+
         _buildAddressField(
           controller: _destinationController,
           focusNode: _destinationFocusNode,
@@ -552,7 +582,7 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
           showSuggestions: _showDestinationSuggestions,
           isOrigin: false,
         ),
-        
+
         // Campo de descrição (só aparece na etapa de descrição)
         if (_currentStep.index >= 2) ...[
           const SizedBox(height: 16),
@@ -570,9 +600,9 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
             maxLines: 3,
           ),
         ],
-        
+
         const SizedBox(height: 24),
-        
+
         // Botões de navegação
         Row(
           children: [
@@ -595,16 +625,19 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   textStyle: const TextStyle(fontSize: 16),
                 ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Text(_getNextButtonText()),
+                child:
+                    _isLoading
+                        ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                        : Text(_getNextButtonText()),
               ),
             ),
           ],
@@ -689,13 +722,18 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
               child: FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(
-                  initialCenter: const LatLng(-19.9167, -43.9345), // Belo Horizonte
+                  initialCenter: const LatLng(
+                    -19.9167,
+                    -43.9345,
+                  ), // Belo Horizonte
                   initialZoom: 12,
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.example.delivery',
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName:
+                        'br.com.delivery.app/1.0 (contact: renatomatosapbusiness@gmail.com)',
                   ),
                   if (_routePoints.isNotEmpty)
                     PolylineLayer(
@@ -745,11 +783,24 @@ class _PublishOrderScreenState extends State<PublishOrderScreen> {
                         ),
                     ],
                   ),
+                   RichAttributionWidget(
+                      attributions: [
+                        TextSourceAttribution(
+                        '© OpenStreetMap contributors',
+                        onTap: () async {
+                          final uri = Uri.parse('https://www.openstreetmap.org/copyright');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        ),
+                      ],
+                      ),
                 ],
               ),
             ),
           ),
-          
+
           // Formulário das etapas (parte inferior, scrollável)
           Expanded(
             flex: 3,
